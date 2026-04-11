@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}SaulInfo Site{% endblock %}
 {% block content %}
 <main class="hero">
@@ -11,6 +11,7 @@
     </p>
     <div class="hero-actions">
       <a href="{{ url_for('login_page') }}" class="button primary">Открыть вход</a>
+      <a href="{{ url_for('register_page') }}" class="button ghost">Создать аккаунт</a>
     </div>
   </section>
   <section class="card">
@@ -20,6 +21,7 @@
       <li>отдельный контейнер</li>
       <li>отдельный nginx vhost под `www.saulinfo.ru`</li>
       <li>интеграция с `shop-update` только через gateway-слой</li>
+      <li>авторизация по e-mail без зависимости от VK</li>
     </ul>
   </section>
 </main>

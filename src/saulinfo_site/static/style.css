@@ -160,6 +160,20 @@ h1, h2 { margin-top: 0; }
   gap: 10px;
 }
 
+.auth-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.auth-link-row {
+  margin-top: 16px;
+}
+
+.auth-link-row a {
+  color: var(--accent-soft);
+}
+
 input {
   width: 100%;
   padding: 12px 14px;

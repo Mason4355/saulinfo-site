@@ -13,16 +13,6 @@ class ShopUpdateGateway:
         conn.row_factory = sqlite3.Row
         return conn
 
-    def get_user_by_vk_id(self, vk_user_id: str) -> dict | None:
-        if not vk_user_id:
-            return None
-        with closing(self._connect()) as conn:
-            row = conn.execute(
-                "SELECT * FROM users WHERE vk_user_id = ? LIMIT 1",
-                (str(vk_user_id),),
-            ).fetchone()
-            return dict(row) if row else None
-
     def get_user(self, user_id: int) -> dict | None:
         with closing(self._connect()) as conn:
             row = conn.execute(
@@ -30,6 +20,9 @@ class ShopUpdateGateway:
                 (int(user_id),),
             ).fetchone()
             return dict(row) if row else None
+
+    def user_exists(self, user_id: int) -> bool:
+        return self.get_user(user_id) is not None
 
     def get_user_keys(self, user_id: int) -> list[dict]:
         with closing(self._connect()) as conn:

@@ -8,4 +8,5 @@ services:
     env_file:
       - .env
     volumes:
+      - ./data:/data
       - /root/shop-update/data:/integrations/shop-update:ro

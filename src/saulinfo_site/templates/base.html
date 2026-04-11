@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
@@ -11,13 +11,14 @@
       <header class="site-header">
         <a href="{{ url_for('index') }}" class="brand">SaulInfo</a>
         <div class="header-actions">
-          {% if current_user %}
-          <span class="header-user">{{ current_user.display_name or current_user.username or current_user.telegram_id }}</span>
+          {% if current_account or current_user %}
+          <span class="header-user">{{ (current_account.email if current_account else None) or (current_user.display_name if current_user else None) or (current_user.username if current_user else None) or (current_user.telegram_id if current_user else '') }}</span>
           <form action="{{ url_for('logout_page') }}" method="post">
             <button type="submit" class="button ghost">Выйти</button>
           </form>
           {% else %}
           <a href="{{ url_for('login_page') }}" class="button ghost">Войти</a>
+          <a href="{{ url_for('register_page') }}" class="button ghost">Регистрация</a>
           {% endif %}
         </div>
       </header>

@@ -1,17 +1,21 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Вход{% endblock %}
 {% block content %}
 <main class="auth-layout">
   <section class="card auth-card">
-    <span class="eyebrow">VK авторизация</span>
+    <span class="eyebrow">E-mail авторизация</span>
     <h1>Вход в личный кабинет</h1>
     <p>Пользовательский контур живёт отдельно от внутренней админки и бота.</p>
 
-    {% if vk_ready %}
-    <a href="{{ url_for('vk_start') }}" class="button primary wide">Войти через VK</a>
-    {% else %}
-    <div class="flash warning">VK OAuth ещё не настроен в `.env`.</div>
-    {% endif %}
+    <form method="post" class="auth-form">
+      <input type="email" name="email" placeholder="Ваш e-mail" required />
+      <input type="password" name="password" placeholder="Пароль" required />
+      <button type="submit" class="button primary wide">Войти</button>
+    </form>
+
+    <div class="muted auth-link-row">
+      Нет аккаунта? <a href="{{ url_for('register_page') }}">Зарегистрироваться</a>
+    </div>
 
     <div class="demo-box">
       <h2>Для локальной проверки</h2>

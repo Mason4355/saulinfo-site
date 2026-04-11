@@ -1,37 +1,50 @@
-import secrets
-from datetime import datetime
+﻿from datetime import datetime
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
+from saulinfo_site.auth_store import AuthStore
 from saulinfo_site.config import Config
 from saulinfo_site.gateway import ShopUpdateGateway
-from saulinfo_site.vk_auth import get_vk_auth_url
 
 
 def create_app() -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config.from_object(Config)
 
+    Config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     gateway = ShopUpdateGateway()
+    auth_store = AuthStore()
+    auth_store.initialize()
 
     @app.context_processor
     def inject_globals():
         current_user = None
-        user_id = session.get("user_id")
-        if user_id is not None:
+        current_account = None
+        auth_user_id = session.get("auth_user_id")
+        shop_user_id = session.get("shop_user_id")
+
+        if auth_user_id not in (None, -1):
             try:
-                current_user = gateway.get_user(int(user_id))
+                current_account = auth_store.get_user(int(auth_user_id))
+            except Exception:
+                current_account = None
+
+        if shop_user_id is not None:
+            try:
+                current_user = gateway.get_user(int(shop_user_id))
             except Exception:
                 current_user = None
+
         return {
             "brand_title": "SaulInfo",
             "current_user": current_user,
+            "current_account": current_account,
             "now": datetime.utcnow(),
         }
 
     def user_required(fn):
         def wrapper(*args, **kwargs):
-            if "user_id" not in session:
+            if "auth_user_id" not in session:
                 return redirect(url_for("login_page"))
             return fn(*args, **kwargs)
 
@@ -40,7 +53,7 @@ def create_app() -> Flask:
 
     @app.route("/")
     def index():
-        if session.get("user_id"):
+        if session.get("auth_user_id") is not None:
             return redirect(url_for("dashboard_page"))
         return render_template("index.html")
 
@@ -48,35 +61,52 @@ def create_app() -> Flask:
     def healthz():
         return {"ok": True, "service": "saulinfo-site"}, 200
 
-    @app.route("/login")
+    @app.route("/login", methods=["GET", "POST"])
     def login_page():
-        vk_ready = bool(Config.VK_CLIENT_ID and Config.VK_CLIENT_SECRET and Config.VK_REDIRECT_URI)
-        return render_template("login.html", vk_ready=vk_ready)
+        if request.method == "POST":
+            email = request.form.get("email", "")
+            password = request.form.get("password", "")
+            account = auth_store.authenticate(email, password)
+            if not account:
+                flash("Неверный e-mail или пароль.", "danger")
+                return render_template("login.html")
 
-    @app.route("/auth/vk")
-    def vk_start():
-        if not (Config.VK_CLIENT_ID and Config.VK_CLIENT_SECRET and Config.VK_REDIRECT_URI):
-            flash("VK OAuth ещё не настроен.", "warning")
-            return redirect(url_for("login_page"))
-        state = secrets.token_urlsafe(24)
-        session["vk_state"] = state
-        return redirect(get_vk_auth_url(state))
+            session["auth_user_id"] = int(account["auth_user_id"])
+            linked_shop_user_id = account.get("linked_shop_user_id")
+            if linked_shop_user_id is not None:
+                session["shop_user_id"] = int(linked_shop_user_id)
+            else:
+                session.pop("shop_user_id", None)
 
-    @app.route("/auth/vk/callback")
-    def vk_callback():
-        state = request.args.get("state", "")
-        if not state or state != session.get("vk_state"):
-            flash("Сессия VK-входа устарела.", "warning")
-            return redirect(url_for("login_page"))
-        session.pop("vk_state", None)
+            return redirect(url_for("dashboard_page"))
 
-        code = request.args.get("code", "")
-        if not code:
-            flash("VK не вернул код авторизации.", "danger")
-            return redirect(url_for("login_page"))
+        return render_template("login.html")
 
-        flash("Каркас VK callback готов. Следующий шаг — обменивать code на access_token и поднимать профиль пользователя.", "success")
-        return redirect(url_for("login_page"))
+    @app.route("/register", methods=["GET", "POST"])
+    def register_page():
+        if request.method == "POST":
+            email = request.form.get("email", "")
+            password = request.form.get("password", "")
+            linked_raw = (request.form.get("linked_shop_user_id") or "").strip()
+            linked_shop_user_id = None
+
+            if linked_raw:
+                try:
+                    linked_shop_user_id = int(linked_raw)
+                except ValueError:
+                    flash("ID пользователя должен быть числом.", "warning")
+                    return render_template("register.html")
+
+                if not gateway.user_exists(linked_shop_user_id):
+                    flash("Пользователь с таким ID в shop-update не найден.", "warning")
+                    return render_template("register.html")
+
+            ok, message = auth_store.create_user(email, password, linked_shop_user_id)
+            flash(message, "success" if ok else "warning")
+            if ok:
+                return redirect(url_for("login_page"))
+
+        return render_template("register.html")
 
     @app.route("/demo-login/<int:user_id>")
     def demo_login(user_id: int):
@@ -84,29 +114,36 @@ def create_app() -> Flask:
         if not user:
             flash("Пользователь не найден в shop-update.", "warning")
             return redirect(url_for("login_page"))
-        session["user_id"] = int(user["telegram_id"])
+
+        session["auth_user_id"] = -1
+        session["shop_user_id"] = int(user["telegram_id"])
         return redirect(url_for("dashboard_page"))
 
     @app.route("/dashboard")
     @user_required
     def dashboard_page():
-        user = gateway.get_user(int(session["user_id"]))
-        if not user:
-            session.pop("user_id", None)
-            flash("Пользователь не найден.", "warning")
-            return redirect(url_for("login_page"))
+        account = None
+        auth_user_id = session.get("auth_user_id")
+        if auth_user_id not in (None, -1):
+            account = auth_store.get_user(int(auth_user_id))
+
+        shop_user_id = session.get("shop_user_id")
+        user = gateway.get_user(int(shop_user_id)) if shop_user_id is not None else None
+
         return render_template(
             "dashboard.html",
+            account=account,
             user=user,
-            keys=gateway.get_user_keys(int(user["telegram_id"])),
-            tickets=gateway.get_user_tickets(int(user["telegram_id"])),
-            referrals=gateway.get_referrals(int(user["telegram_id"])),
+            keys=gateway.get_user_keys(int(user["telegram_id"])) if user else [],
+            tickets=gateway.get_user_tickets(int(user["telegram_id"])) if user else [],
+            referrals=gateway.get_referrals(int(user["telegram_id"])) if user else [],
             hosts=gateway.get_hosts_with_plans(),
         )
 
     @app.post("/logout")
     def logout_page():
-        session.pop("user_id", None)
+        session.pop("auth_user_id", None)
+        session.pop("shop_user_id", None)
         flash("Вы вышли из кабинета.", "success")
         return redirect(url_for("index"))
 

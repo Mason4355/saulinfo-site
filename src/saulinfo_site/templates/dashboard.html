@@ -1,15 +1,20 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Кабинет{% endblock %}
 {% block content %}
 <main class="dashboard-grid">
   <section class="card profile-card">
     <span class="eyebrow">Профиль</span>
-    <h1>{{ user.display_name or user.username or ('User ' ~ user.telegram_id) }}</h1>
-    <p>ID: {{ user.telegram_id }}</p>
+    <h1>{{ (user.display_name if user else None) or (user.username if user else None) or (account.email if account else 'Аккаунт сайта') }}</h1>
+    <p>E-mail: {{ account.email if account else 'demo' }}</p>
+    {% if user %}
+    <p>ID в shop-update: {{ user.telegram_id }}</p>
+    {% else %}
+    <div class="flash warning">Аккаунт сайта пока не привязан к пользователю из `shop-update`, поэтому внутри кабинета ещё нет подписок и тикетов.</div>
+    {% endif %}
     <div class="stats-grid">
-      <div class="stat"><span>Баланс</span><strong>{{ '%.2f'|format(user.balance or 0) }} RUB</strong></div>
-      <div class="stat"><span>Потрачено</span><strong>{{ '%.2f'|format(user.total_spent or 0) }} RUB</strong></div>
-      <div class="stat"><span>Месяцев</span><strong>{{ user.total_months or 0 }}</strong></div>
+      <div class="stat"><span>Баланс</span><strong>{{ '%.2f'|format((user.balance if user else 0) or 0) }} RUB</strong></div>
+      <div class="stat"><span>Потрачено</span><strong>{{ '%.2f'|format((user.total_spent if user else 0) or 0) }} RUB</strong></div>
+      <div class="stat"><span>Месяцев</span><strong>{{ (user.total_months if user else 0) or 0 }}</strong></div>
       <div class="stat"><span>Рефералов</span><strong>{{ referrals|length }}</strong></div>
     </div>
   </section>
