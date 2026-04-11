@@ -44,6 +44,10 @@ def create_app() -> Flask:
             return redirect(url_for("dashboard_page"))
         return render_template("index.html")
 
+    @app.route("/healthz")
+    def healthz():
+        return {"ok": True, "service": "saulinfo-site"}, 200
+
     @app.route("/login")
     def login_page():
         vk_ready = bool(Config.VK_CLIENT_ID and Config.VK_CLIENT_SECRET and Config.VK_REDIRECT_URI)

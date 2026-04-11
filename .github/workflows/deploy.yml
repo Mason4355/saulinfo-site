@@ -18,6 +18,5 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd ${{ secrets.PROJECT_PATH }}
-            git pull origin main
-            docker compose up -d --build
-            docker image prune -f
+            chmod +x ./update ./deploy/update.sh
+            ./update
