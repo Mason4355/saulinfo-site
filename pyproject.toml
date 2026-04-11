@@ -1,0 +1,21 @@
+[project]
+name = "saulinfo-site"
+version = "0.1.0"
+requires-python = ">=3.11"
+description = "Public customer website for SaulInfo VPN with integration to shop-update"
+dependencies = [
+    "flask==3.1.1",
+    "python-dotenv==1.1.1",
+    "requests==2.32.3",
+    "werkzeug==3.1.3",
+]
+
+[project.scripts]
+saulinfo-site = "saulinfo_site.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

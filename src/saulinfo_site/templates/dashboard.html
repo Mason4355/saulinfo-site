@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Кабинет{% endblock %}
+{% block content %}
+<main class="dashboard-grid">
+  <section class="card profile-card">
+    <span class="eyebrow">Профиль</span>
+    <h1>{{ user.display_name or user.username or ('User ' ~ user.telegram_id) }}</h1>
+    <p>ID: {{ user.telegram_id }}</p>
+    <div class="stats-grid">
+      <div class="stat"><span>Баланс</span><strong>{{ '%.2f'|format(user.balance or 0) }} RUB</strong></div>
+      <div class="stat"><span>Потрачено</span><strong>{{ '%.2f'|format(user.total_spent or 0) }} RUB</strong></div>
+      <div class="stat"><span>Месяцев</span><strong>{{ user.total_months or 0 }}</strong></div>
+      <div class="stat"><span>Рефералов</span><strong>{{ referrals|length }}</strong></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Ключи</h2>
+    <div class="list">
+      {% for key in keys %}
+      <div class="list-item">
+        <div>
+          <strong>{{ key.host_name }}</strong>
+          <div class="muted">{{ key.key_email }}</div>
+        </div>
+        <div class="muted">{{ key.expiry_date or '—' }}</div>
+      </div>
+      {% else %}
+      <div class="muted">Ключей пока нет.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Обращения</h2>
+    <div class="list">
+      {% for ticket in tickets %}
+      <div class="list-item">
+        <div>
+          <strong>#{{ ticket.ticket_id }}</strong>
+          <div class="muted">{{ ticket.subject or 'Без темы' }}</div>
+        </div>
+        <div class="muted">{{ ticket.status }}</div>
+      </div>
+      {% else %}
+      <div class="muted">Обращений нет.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Тарифы</h2>
+    <div class="list">
+      {% for host in hosts %}
+      <div class="host-block">
+        <strong>{{ host.host_name }}</strong>
+        {% for plan in host.plans %}
+        <div class="list-item compact">
+          <span>{{ plan.plan_name }}</span>
+          <strong>{{ '%.0f'|format(plan.price) }} RUB</strong>
+        </div>
+        {% else %}
+        <div class="muted">Тарифы не добавлены.</div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="muted">Хосты пока недоступны.</div>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+{% endblock %}

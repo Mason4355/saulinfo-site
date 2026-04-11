@@ -1,0 +1,11 @@
+services:
+  saulinfo-site:
+    build: .
+    restart: unless-stopped
+    container_name: saulinfo-site
+    ports:
+      - "${SAULINFO_PORT:-8080}:8080"
+    env_file:
+      - .env
+    volumes:
+      - /root/shop-update/data:/integrations/shop-update:ro

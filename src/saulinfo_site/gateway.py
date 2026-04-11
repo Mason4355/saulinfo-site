@@ -1,0 +1,72 @@
+import sqlite3
+from contextlib import closing
+
+from saulinfo_site.config import Config
+
+
+class ShopUpdateGateway:
+    def __init__(self, db_path: str | None = None):
+        self.db_path = db_path or Config.SHOP_UPDATE_DB_PATH
+
+    def _connect(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def get_user_by_vk_id(self, vk_user_id: str) -> dict | None:
+        if not vk_user_id:
+            return None
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE vk_user_id = ? LIMIT 1",
+                (str(vk_user_id),),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_user(self, user_id: int) -> dict | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE telegram_id = ? LIMIT 1",
+                (int(user_id),),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_user_keys(self, user_id: int) -> list[dict]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM vpn_keys WHERE user_id = ? ORDER BY created_date DESC",
+                (int(user_id),),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_user_tickets(self, user_id: int) -> list[dict]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM support_tickets WHERE user_id = ? ORDER BY updated_at DESC",
+                (int(user_id),),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_referrals(self, user_id: int) -> list[dict]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                """
+                SELECT telegram_id, username, display_name, total_spent, registration_date
+                FROM users
+                WHERE referred_by = ?
+                ORDER BY registration_date DESC
+                """,
+                (int(user_id),),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_hosts_with_plans(self) -> list[dict]:
+        with closing(self._connect()) as conn:
+            hosts = [dict(row) for row in conn.execute("SELECT * FROM xui_hosts ORDER BY host_name").fetchall()]
+            for host in hosts:
+                plans = conn.execute(
+                    "SELECT * FROM plans WHERE host_name = ? ORDER BY months, price",
+                    (host["host_name"],),
+                ).fetchall()
+                host["plans"] = [dict(row) for row in plans]
+            return hosts

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+<main class="auth-layout">
+  <section class="card auth-card">
+    <span class="eyebrow">VK авторизация</span>
+    <h1>Вход в личный кабинет</h1>
+    <p>Пользовательский контур живёт отдельно от внутренней админки и бота.</p>
+
+    {% if vk_ready %}
+    <a href="{{ url_for('vk_start') }}" class="button primary wide">Войти через VK</a>
+    {% else %}
+    <div class="flash warning">VK OAuth ещё не настроен в `.env`.</div>
+    {% endif %}
+
+    <div class="demo-box">
+      <h2>Для локальной проверки</h2>
+      <p>Можно временно зайти в демо-режиме, если знаете ID пользователя из shop-update.</p>
+      <form method="get" action="{{ url_for('demo_login', user_id=1) }}" onsubmit="event.preventDefault(); const v=this.querySelector('input').value; if(v) window.location.href='/demo-login/'+encodeURIComponent(v);">
+        <input type="number" placeholder="User ID" />
+        <button type="submit" class="button ghost">Демо-вход</button>
+      </form>
+    </div>
+  </section>
+</main>
+{% endblock %}

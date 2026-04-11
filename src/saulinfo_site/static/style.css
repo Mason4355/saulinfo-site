@@ -1,0 +1,251 @@
+:root {
+  --bg: #08111f;
+  --bg-soft: #101c31;
+  --card: rgba(14, 27, 49, 0.84);
+  --line: rgba(151, 177, 255, 0.18);
+  --text: #eef4ff;
+  --muted: #9db0cf;
+  --accent: #2f6fed;
+  --accent-soft: #8eb4ff;
+  --danger: #d96c6c;
+  --warning: #d9a95f;
+  --success: #63c286;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(47,111,237,0.22), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(142,180,255,0.16), transparent 24%),
+    linear-gradient(180deg, #07101d 0%, #0b1525 100%);
+}
+
+.page-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+
+.site-header,
+.hero,
+.dashboard-grid,
+.stats-grid,
+.hero-actions,
+.header-actions,
+.list-item,
+.compact,
+.auth-layout {
+  display: flex;
+}
+
+.site-header,
+.list-item,
+.compact {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-header {
+  margin-bottom: 24px;
+}
+
+.brand {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.header-actions {
+  gap: 12px;
+  align-items: center;
+}
+
+.hero {
+  gap: 24px;
+  align-items: stretch;
+}
+
+.hero-copy,
+.card,
+.auth-card,
+.profile-card,
+.host-block {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+}
+
+.hero-copy,
+.card,
+.auth-card {
+  padding: 28px;
+}
+
+.hero-copy {
+  flex: 1.3;
+}
+
+.card {
+  flex: 1;
+}
+
+.eyebrow {
+  display: inline-block;
+  color: var(--accent-soft);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: .75rem;
+  margin-bottom: 12px;
+}
+
+h1, h2 { margin-top: 0; }
+
+.button {
+  border: 1px solid var(--line);
+  padding: 12px 16px;
+  border-radius: 14px;
+  color: var(--text);
+  text-decoration: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.button.primary {
+  background: linear-gradient(135deg, var(--accent), #4d8bff);
+  border-color: transparent;
+}
+
+.button.wide {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.flash-stack {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.flash {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+
+.flash.success { background: rgba(99,194,134,.12); border-color: rgba(99,194,134,.35); }
+.flash.warning { background: rgba(217,169,95,.12); border-color: rgba(217,169,95,.35); }
+.flash.danger { background: rgba(217,108,108,.12); border-color: rgba(217,108,108,.35); }
+
+.auth-layout {
+  justify-content: center;
+}
+
+.auth-card {
+  width: min(620px, 100%);
+}
+
+.demo-box {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.demo-box form {
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+}
+
+.dashboard-grid {
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.dashboard-grid > .card,
+.dashboard-grid > .profile-card {
+  width: calc(50% - 10px);
+}
+
+.profile-card {
+  width: 100%;
+  padding: 28px;
+}
+
+.stats-grid {
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.stat {
+  min-width: 180px;
+  flex: 1;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid var(--line);
+}
+
+.stat span,
+.muted {
+  color: var(--muted);
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.list-item {
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.host-block {
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.compact {
+  padding: 10px 0;
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .dashboard-grid > .card,
+  .dashboard-grid > .profile-card,
+  .demo-box form {
+    display: block;
+    width: 100%;
+  }
+
+  .hero {
+    display: grid;
+  }
+
+  .dashboard-grid > .card,
+  .dashboard-grid > .profile-card {
+    width: 100%;
+  }
+
+  .demo-box form > * + * {
+    margin-top: 10px;
+  }
+}

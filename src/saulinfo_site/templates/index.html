@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}SaulInfo Site{% endblock %}
+{% block content %}
+<main class="hero">
+  <section class="hero-copy">
+    <span class="eyebrow">Пользовательский сайт</span>
+    <h1>Отдельный публичный кабинет для клиентов SaulInfo</h1>
+    <p>
+      Новый сайт работает отдельно от `shop-update`, но использует его данные через
+      аккуратный интеграционный слой.
+    </p>
+    <div class="hero-actions">
+      <a href="{{ url_for('login_page') }}" class="button primary">Открыть вход</a>
+    </div>
+  </section>
+  <section class="card">
+    <h2>Архитектура</h2>
+    <ul>
+      <li>отдельный репозиторий</li>
+      <li>отдельный контейнер</li>
+      <li>отдельный nginx vhost под `www.saulinfo.ru`</li>
+      <li>интеграция с `shop-update` только через gateway-слой</li>
+    </ul>
+  </section>
+</main>
+{% endblock %}
