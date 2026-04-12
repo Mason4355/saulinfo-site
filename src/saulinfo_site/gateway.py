@@ -13,6 +13,10 @@ class ShopUpdateGateway:
         conn.row_factory = sqlite3.Row
         return conn
 
+    def _get_columns(self, conn: sqlite3.Connection, table_name: str) -> set[str]:
+        rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        return {str(row[1]) for row in rows}
+
     def get_user(self, user_id: int) -> dict | None:
         with closing(self._connect()) as conn:
             row = conn.execute(
@@ -42,9 +46,11 @@ class ShopUpdateGateway:
 
     def get_referrals(self, user_id: int) -> list[dict]:
         with closing(self._connect()) as conn:
+            user_columns = self._get_columns(conn, "users")
+            name_expr = "display_name" if "display_name" in user_columns else "username AS display_name"
             rows = conn.execute(
-                """
-                SELECT telegram_id, username, display_name, total_spent, registration_date
+                f"""
+                SELECT telegram_id, username, {name_expr}, total_spent, registration_date
                 FROM users
                 WHERE referred_by = ?
                 ORDER BY registration_date DESC
