@@ -3,30 +3,46 @@
 {% block content %}
 <main class="hero">
   <section class="hero-copy">
-    <span class="eyebrow">Пользовательский сайт</span>
-    <h1>Отдельный публичный кабинет для клиентов SaulInfo</h1>
+    <span class="eyebrow">Личный кабинет SaulInfo</span>
+    <h1>Пространство, где всё нужное всегда под рукой</h1>
     <p>
-      Новый сайт работает отдельно от `shop-update`, но использует его данные через
-      аккуратный интеграционный слой.
+      Здесь собраны доступы, история, поддержка и всё, что помогает чувствовать
+      контроль без лишних шагов и лишнего шума.
+    </p>
+    <p class="hero-note">
+      Спокойный вход в ваш сервис: понятно, быстро и без ощущения, что вы попали
+      в техническую панель.
     </p>
     <div class="hero-actions">
-      <a href="{{ url_for('login_page') }}" class="button primary">Открыть вход</a>
+      <a href="{{ url_for('login_page') }}" class="button primary">Войти в кабинет</a>
       {% if allow_self_registration %}
-      <a href="{{ url_for('register_page') }}" class="button ghost">Создать аккаунт</a>
+      <a href="{{ url_for('register_page') }}" class="button ghost">Создать доступ</a>
       {% else %}
-      <span class="muted">Доступ в кабинет выдаёт администратор.</span>
+      <span class="muted hero-inline-note">Доступ оформляется через администратора SaulInfo.</span>
       {% endif %}
     </div>
   </section>
-  <section class="card">
-    <h2>Архитектура</h2>
-    <ul>
-      <li>отдельный репозиторий</li>
-      <li>отдельный контейнер</li>
-      <li>отдельный nginx vhost под `www.saulinfo.ru`</li>
-      <li>интеграция с `shop-update` только через gateway-слой</li>
-      <li>авторизация по e-mail без зависимости от VK</li>
-    </ul>
+  <section class="card card-story">
+    <span class="eyebrow">Что внутри</span>
+    <h2>Не просто вход, а точка опоры</h2>
+    <p>
+      Кабинет создан так, чтобы важные вещи не терялись среди лишних экранов.
+      Всё выглядит сдержанно, работает предсказуемо и остаётся понятным с первого взгляда.
+    </p>
+    <div class="story-points">
+      <div class="story-point">
+        <strong>Ясность</strong>
+        <span>Нужные действия и данные без перегруза.</span>
+      </div>
+      <div class="story-point">
+        <strong>Уверенность</strong>
+        <span>Поддержка, доступы и история рядом, когда они нужны.</span>
+      </div>
+      <div class="story-point">
+        <strong>Порядок</strong>
+        <span>Один кабинет вместо разбросанных сценариев и лишних переходов.</span>
+      </div>
+    </div>
   </section>
 </main>
 {% endblock %}

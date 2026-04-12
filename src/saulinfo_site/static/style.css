@@ -93,6 +93,22 @@ body {
   flex: 1;
 }
 
+.card-story {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-story::before {
+  content: "";
+  position: absolute;
+  inset: auto -10% -20% auto;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(142,180,255,0.12), transparent 65%);
+  pointer-events: none;
+}
+
 .eyebrow {
   display: inline-block;
   color: var(--accent-soft);
@@ -103,6 +119,24 @@ body {
 }
 
 h1, h2 { margin-top: 0; }
+
+.hero-copy h1 {
+  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  line-height: 1.05;
+  max-width: 11ch;
+  margin-bottom: 18px;
+}
+
+.hero-copy p {
+  max-width: 58ch;
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.hero-note {
+  color: var(--muted);
+  margin-top: 14px;
+}
 
 .button {
   border: 1px solid var(--line);
@@ -140,6 +174,34 @@ h1, h2 { margin-top: 0; }
 .flash.success { background: rgba(99,194,134,.12); border-color: rgba(99,194,134,.35); }
 .flash.warning { background: rgba(217,169,95,.12); border-color: rgba(217,169,95,.35); }
 .flash.danger { background: rgba(217,108,108,.12); border-color: rgba(217,108,108,.35); }
+
+.hero-inline-note {
+  align-self: center;
+}
+
+.story-points {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.story-point {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.story-point strong {
+  font-size: 1rem;
+}
+
+.story-point span {
+  color: var(--muted);
+  line-height: 1.5;
+}
 
 .auth-layout {
   justify-content: center;
@@ -252,6 +314,11 @@ input {
 
   .hero {
     display: grid;
+  }
+
+  .hero-copy h1 {
+    max-width: none;
+    font-size: 2.2rem;
   }
 
   .dashboard-grid > .card,
