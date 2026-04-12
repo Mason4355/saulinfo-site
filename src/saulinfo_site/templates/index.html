@@ -11,7 +11,11 @@
     </p>
     <div class="hero-actions">
       <a href="{{ url_for('login_page') }}" class="button primary">Открыть вход</a>
+      {% if allow_self_registration %}
       <a href="{{ url_for('register_page') }}" class="button ghost">Создать аккаунт</a>
+      {% else %}
+      <span class="muted">Доступ в кабинет выдаёт администратор.</span>
+      {% endif %}
     </div>
   </section>
   <section class="card">

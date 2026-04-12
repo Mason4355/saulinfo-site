@@ -14,7 +14,11 @@
     </form>
 
     <div class="muted auth-link-row">
+      {% if allow_self_registration %}
       Нет аккаунта? <a href="{{ url_for('register_page') }}">Зарегистрироваться</a>
+      {% else %}
+      Если доступа ещё нет, обратитесь к администратору SaulInfo.
+      {% endif %}
     </div>
 
     <div class="demo-box">

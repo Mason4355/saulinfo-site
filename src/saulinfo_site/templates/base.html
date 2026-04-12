@@ -18,7 +18,9 @@
           </form>
           {% else %}
           <a href="{{ url_for('login_page') }}" class="button ghost">Войти</a>
+          {% if allow_self_registration %}
           <a href="{{ url_for('register_page') }}" class="button ghost">Регистрация</a>
+          {% endif %}
           {% endif %}
         </div>
       </header>

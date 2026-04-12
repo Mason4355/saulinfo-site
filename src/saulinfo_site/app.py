@@ -39,6 +39,7 @@ def create_app() -> Flask:
             "brand_title": "SaulInfo",
             "current_user": current_user,
             "current_account": current_account,
+            "allow_self_registration": Config.ALLOW_SELF_REGISTRATION,
             "now": datetime.utcnow(),
         }
 
@@ -84,6 +85,10 @@ def create_app() -> Flask:
 
     @app.route("/register", methods=["GET", "POST"])
     def register_page():
+        if not Config.ALLOW_SELF_REGISTRATION:
+            flash("Самостоятельная регистрация отключена. Доступ к сайту выдаёт администратор.", "warning")
+            return redirect(url_for("login_page"))
+
         if request.method == "POST":
             email = request.form.get("email", "")
             password = request.form.get("password", "")
