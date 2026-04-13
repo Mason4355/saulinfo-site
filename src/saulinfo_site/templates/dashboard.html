@@ -1,77 +1,136 @@
 ﻿{% extends "base.html" %}
 {% block title %}Кабинет{% endblock %}
 {% block content %}
-<main class="dashboard-grid">
-  <section class="card profile-card">
-    <span class="eyebrow">Профиль</span>
-    <h1>{{ (user.display_name if user else None) or (user.username if user else None) or (account.email if account else 'Аккаунт сайта') }}</h1>
-    <p>E-mail: {{ account.email if account else 'demo' }}</p>
-    {% if user %}
-    <p>ID в shop-update: {{ user.telegram_id }}</p>
-    {% else %}
-    <div class="flash warning">Аккаунт сайта пока не привязан к пользователю из `shop-update`, поэтому внутри кабинета ещё нет подписок и тикетов.</div>
-    {% endif %}
-    <div class="stats-grid">
-      <div class="stat"><span>Баланс</span><strong>{{ '%.2f'|format((user.balance if user else 0) or 0) }} RUB</strong></div>
-      <div class="stat"><span>Потрачено</span><strong>{{ '%.2f'|format((user.total_spent if user else 0) or 0) }} RUB</strong></div>
-      <div class="stat"><span>Месяцев</span><strong>{{ (user.total_months if user else 0) or 0 }}</strong></div>
-      <div class="stat"><span>Рефералов</span><strong>{{ referrals|length }}</strong></div>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Ключи</h2>
-    <div class="list">
-      {% for key in keys %}
-      <div class="list-item">
-        <div>
-          <strong>{{ key.host_name }}</strong>
-          <div class="muted">{{ key.key_email }}</div>
-        </div>
-        <div class="muted">{{ key.expiry_date or '—' }}</div>
-      </div>
+<main class="dashboard">
+  <section class="dashboard-hero">
+    <div>
+      <span class="eyebrow">Личный кабинет</span>
+      <h1>{{ (user.get('display_name') if user else None) or (user.get('username') if user else None) or (account.email if account else 'Аккаунт SaulInfo') }}</h1>
+      <p>E-mail: {{ account.email if account else '—' }}</p>
+      {% if user %}
+      <p>ID в системе: {{ user.get('telegram_id') }}</p>
       {% else %}
-      <div class="muted">Ключей пока нет.</div>
-      {% endfor %}
+      <div class="flash warning">Аккаунт сайта пока не привязан к пользователю из `shop-update`, поэтому часть данных кабинета ещё недоступна.</div>
+      {% endif %}
     </div>
-  </section>
-
-  <section class="card">
-    <h2>Обращения</h2>
-    <div class="list">
-      {% for ticket in tickets %}
-      <div class="list-item">
-        <div>
-          <strong>#{{ ticket.ticket_id }}</strong>
-          <div class="muted">{{ ticket.subject or 'Без темы' }}</div>
-        </div>
-        <div class="muted">{{ ticket.status }}</div>
+    <div class="dashboard-hero-aside">
+      <div class="hero-meta">
+        <strong>Статус доступа</strong>
+        <span class="muted">{% if user %}Аккаунт привязан и готов к работе.{% else %}Нужна привязка к существующему пользователю.{% endif %}</span>
       </div>
-      {% else %}
-      <div class="muted">Обращений нет.</div>
-      {% endfor %}
+      <div class="hero-meta">
+        <strong>Поддержка</strong>
+        <span class="muted">Все обращения и история взаимодействия остаются внутри кабинета.</span>
+      </div>
     </div>
   </section>
 
-  <section class="card">
-    <h2>Тарифы</h2>
-    <div class="list">
-      {% for host in hosts %}
-      <div class="host-block">
-        <strong>{{ host.host_name }}</strong>
-        {% for plan in host.plans %}
-        <div class="list-item compact">
-          <span>{{ plan.plan_name }}</span>
-          <strong>{{ '%.0f'|format(plan.price) }} RUB</strong>
+  <section class="metric-grid">
+    <article class="metric">
+      <span>Баланс</span>
+      <strong>{{ '%.2f'|format((user.get('balance', 0) if user else 0) or 0) }} RUB</strong>
+    </article>
+    <article class="metric">
+      <span>Потрачено</span>
+      <strong>{{ '%.2f'|format((user.get('total_spent', 0) if user else 0) or 0) }} RUB</strong>
+    </article>
+    <article class="metric">
+      <span>Месяцев</span>
+      <strong>{{ (user.get('total_months', 0) if user else 0) or 0 }}</strong>
+    </article>
+    <article class="metric">
+      <span>Рефералов</span>
+      <strong>{{ referrals|length }}</strong>
+    </article>
+  </section>
+
+  <section class="dashboard-grid">
+    <article class="dashboard-card">
+      <span class="eyebrow">Доступы</span>
+      <h2>Ключи и подключения</h2>
+      <p>Все активные ключи и их состояние по подключённым хостам.</p>
+      <div class="list">
+        {% for key in keys %}
+        <div class="list-item">
+          <div>
+            <strong>{{ key.get('host_name', 'Хост не указан') }}</strong>
+            <div class="muted">{{ key.get('key_email', 'Без e-mail') }}</div>
+          </div>
+          <div class="muted">{{ key.get('expiry_date') or '—' }}</div>
         </div>
         {% else %}
-        <div class="muted">Тарифы не добавлены.</div>
+        <div class="empty-state">Ключей пока нет.</div>
         {% endfor %}
       </div>
-      {% else %}
-      <div class="muted">Хосты пока недоступны.</div>
-      {% endfor %}
-    </div>
+    </article>
+
+    <article class="dashboard-card">
+      <span class="eyebrow">Поддержка</span>
+      <h2>Обращения и статусы</h2>
+      <p>История ваших тикетов и текущее состояние запросов.</p>
+      <div class="list">
+        {% for ticket in tickets %}
+        <div class="support-item">
+          <div>
+            <strong>#{{ ticket.get('ticket_id', '—') }}</strong>
+            <div class="muted">{{ ticket.get('subject') or 'Без темы' }}</div>
+          </div>
+          <div class="muted">{{ ticket.get('status', 'unknown') }}</div>
+        </div>
+        {% else %}
+        <div class="empty-state">Обращений пока нет.</div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="dashboard-card">
+      <span class="eyebrow">Тарифы</span>
+      <h2>Доступные варианты</h2>
+      <p>Список хостов и доступных тарифных планов в текущей системе.</p>
+      <div class="list">
+        {% for host in hosts %}
+        <div class="host-block">
+          <strong>{{ host.get('host_name', 'Хост') }}</strong>
+          {% for plan in host.get('plans', []) %}
+          <div class="list-item compact">
+            <span>{{ plan.get('plan_name', 'Тариф') }}</span>
+            <strong>{{ '%.0f'|format((plan.get('price', 0) or 0)) }} RUB</strong>
+          </div>
+          {% else %}
+          <div class="muted">Тарифы не добавлены.</div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">Хосты пока недоступны.</div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="dashboard-card">
+      <span class="eyebrow">Профиль</span>
+      <h2>Состояние аккаунта</h2>
+      <p>Краткая сводка по доступу и связке с основной системой.</p>
+      <div class="list">
+        <div class="list-item">
+          <div>
+            <strong>Аккаунт сайта</strong>
+            <div class="muted">{{ account.email if account else 'Не найден' }}</div>
+          </div>
+        </div>
+        <div class="list-item">
+          <div>
+            <strong>Привязка к shop-update</strong>
+            <div class="muted">{% if user %}Активна, ID {{ user.get('telegram_id') }}{% else %}Пока не настроена{% endif %}</div>
+          </div>
+        </div>
+        <div class="list-item">
+          <div>
+            <strong>Реферальные связи</strong>
+            <div class="muted">{{ referrals|length }} активных записей</div>
+          </div>
+        </div>
+      </div>
+    </article>
   </section>
 </main>
 {% endblock %}

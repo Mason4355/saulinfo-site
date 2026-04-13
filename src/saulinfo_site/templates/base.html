@@ -4,15 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}SaulInfo{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
     <div class="page-shell">
       <header class="site-header">
-        <a href="{{ url_for('index') }}" class="brand">SaulInfo</a>
+        <div class="brand-wrap">
+          <a href="{{ url_for('index') }}" class="brand">SaulInfo</a>
+          <span class="brand-subtitle">Личный кабинет и защищённый доступ к сервису</span>
+        </div>
         <div class="header-actions">
           {% if current_account or current_user %}
-          <span class="header-user">{{ (current_account.email if current_account else None) or (current_user.display_name if current_user else None) or (current_user.username if current_user else None) or (current_user.telegram_id if current_user else '') }}</span>
+          <span class="header-user">{{ (current_account.email if current_account else None) or (current_user.get('display_name') if current_user else None) or (current_user.get('username') if current_user else None) or (current_user.get('telegram_id') if current_user else '') }}</span>
           <form action="{{ url_for('logout_page') }}" method="post">
             <button type="submit" class="button ghost">Выйти</button>
           </form>
@@ -36,6 +42,13 @@
       {% endwith %}
 
       {% block content %}{% endblock %}
+
+      <footer class="footer">
+        <div class="footer-inner">
+          <span>SaulInfo. Защищённый доступ, управление сервисом и поддержка в одном кабинете.</span>
+          <span>Если доступа ещё нет, обратитесь к администратору SaulInfo.</span>
+        </div>
+      </footer>
     </div>
   </body>
 </html>

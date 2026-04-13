@@ -2,32 +2,31 @@
 {% block title %}Вход{% endblock %}
 {% block content %}
 <main class="auth-layout">
-  <section class="card auth-card">
-    <span class="eyebrow">E-mail авторизация</span>
+  <section class="auth-card">
+    <span class="eyebrow">Авторизация</span>
     <h1>Вход в личный кабинет</h1>
-    <p>Пользовательский контур живёт отдельно от внутренней админки и бота.</p>
+    <p>Используйте e-mail и пароль, выданные для вашего аккаунта SaulInfo.</p>
 
     <form method="post" class="auth-form">
-      <input type="email" name="email" placeholder="Ваш e-mail" required />
-      <input type="password" name="password" placeholder="Пароль" required />
-      <button type="submit" class="button primary wide">Войти</button>
+      <label class="form-label">
+        <span>E-mail</span>
+        <input type="email" name="email" placeholder="name@example.com" required />
+      </label>
+      <label class="form-label">
+        <span>Пароль</span>
+        <input type="password" name="password" placeholder="Введите пароль" required />
+      </label>
+      <div class="auth-actions">
+        <button type="submit" class="button primary wide">Войти</button>
+      </div>
     </form>
 
     <div class="muted auth-link-row">
       {% if allow_self_registration %}
-      Нет аккаунта? <a href="{{ url_for('register_page') }}">Зарегистрироваться</a>
+      Нет аккаунта? <a href="{{ url_for('register_page') }}">Создать доступ</a>
       {% else %}
       Если доступа ещё нет, обратитесь к администратору SaulInfo.
       {% endif %}
-    </div>
-
-    <div class="demo-box">
-      <h2>Для локальной проверки</h2>
-      <p>Можно временно зайти в демо-режиме, если знаете ID пользователя из shop-update.</p>
-      <form method="get" action="{{ url_for('demo_login', user_id=1) }}" onsubmit="event.preventDefault(); const v=this.querySelector('input').value; if(v) window.location.href='/demo-login/'+encodeURIComponent(v);">
-        <input type="number" placeholder="User ID" />
-        <button type="submit" class="button ghost">Демо-вход</button>
-      </form>
     </div>
   </section>
 </main>

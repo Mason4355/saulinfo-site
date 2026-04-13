@@ -1,5 +1,5 @@
+﻿from contextlib import closing
 import sqlite3
-from contextlib import closing
 
 from werkzeug.security import check_password_hash, generate_password_hash
 

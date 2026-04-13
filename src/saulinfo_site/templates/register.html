@@ -2,16 +2,27 @@
 {% block title %}Регистрация{% endblock %}
 {% block content %}
 <main class="auth-layout">
-  <section class="card auth-card">
-    <span class="eyebrow">Новый аккаунт</span>
-    <h1>Регистрация по e-mail</h1>
-    <p>Если знаете свой ID в текущей системе, можно сразу привязать кабинет к данным из `shop-update`.</p>
+  <section class="auth-card">
+    <span class="eyebrow">Новый доступ</span>
+    <h1>Создание аккаунта SaulInfo</h1>
+    <p>Заполните e-mail и пароль. Если у вас уже есть пользователь в системе, можно сразу привязать аккаунт по Telegram ID.</p>
 
     <form method="post" class="auth-form">
-      <input type="email" name="email" placeholder="Ваш e-mail" required />
-      <input type="password" name="password" placeholder="Пароль не короче 6 символов" required />
-      <input type="number" name="linked_shop_user_id" placeholder="ID пользователя в shop-update (необязательно)" />
-      <button type="submit" class="button primary wide">Создать аккаунт</button>
+      <label class="form-label">
+        <span>E-mail</span>
+        <input type="email" name="email" placeholder="name@example.com" required />
+      </label>
+      <label class="form-label">
+        <span>Пароль</span>
+        <input type="password" name="password" placeholder="Пароль не короче 6 символов" required />
+      </label>
+      <label class="form-label">
+        <span>Telegram ID</span>
+        <input type="number" name="linked_shop_user_id" placeholder="Необязательно" />
+      </label>
+      <div class="auth-actions">
+        <button type="submit" class="button primary wide">Создать аккаунт</button>
+      </div>
     </form>
 
     <div class="muted auth-link-row">
