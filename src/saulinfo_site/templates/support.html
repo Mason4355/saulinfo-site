@@ -1,0 +1,67 @@
+﻿{% extends "base.html" %}
+{% block title %}Поддержка{% endblock %}
+{% block content %}
+<main class="inner-page support-page">
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">Поддержка</span>
+      <h1>Мои обращения</h1>
+    </div>
+  </section>
+
+  <section class="content-grid-two support-layout">
+    <article class="page-card table-card">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">История</span>
+          <h2>Список тикетов</h2>
+        </div>
+      </div>
+      {% if tickets %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Тема</th>
+              <th>Статус</th>
+              <th>Последнее обновление</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ticket in tickets %}
+            <tr>
+              <td>
+                <strong>#{{ ticket.get('ticket_id', '—') }}</strong><br />
+                <span class="muted">{{ ticket.get('subject') or 'Без темы' }}</span>
+              </td>
+              <td><span class="status-pill">{{ ticket.get('status', 'unknown') }}</span></td>
+              <td>{{ ticket.get('updated_at') or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">Обращений пока нет.</div>
+      {% endif %}
+    </article>
+
+    <article class="page-card support-form-card">
+      <span class="eyebrow">Быстрое обращение</span>
+      <h2>Новая форма поддержки</h2>
+      <p>Макет уже перенесён на сайт. Отправка новых веб-обращений будет подключена следующим этапом, а текущая история уже доступна слева.</p>
+      <form method="post" class="auth-form">
+        <label class="form-label">
+          <span>Тема</span>
+          <input type="text" name="subject" placeholder="Кратко опишите вопрос" />
+        </label>
+        <label class="form-label">
+          <span>Сообщение</span>
+          <textarea name="message" rows="5" placeholder="Подробности обращения"></textarea>
+        </label>
+        <button type="submit" class="button primary wide">Отправить обращение</button>
+      </form>
+    </article>
+  </section>
+</main>
+{% endblock %}

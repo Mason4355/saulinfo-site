@@ -1,134 +1,103 @@
 ﻿{% extends "base.html" %}
 {% block title %}Кабинет{% endblock %}
 {% block content %}
-<main class="dashboard">
-  <section class="dashboard-hero">
+<main class="dashboard-page">
+  <section class="dashboard-banner page-card">
     <div>
       <span class="eyebrow">Личный кабинет</span>
-      <h1>{{ (user.get('display_name') if user else None) or (user.get('username') if user else None) or (account.email if account else 'Аккаунт SaulInfo') }}</h1>
-      <p>E-mail: {{ account.email if account else '—' }}</p>
-      {% if user %}
-      <p>ID в системе: {{ user.get('telegram_id') }}</p>
-      {% else %}
-      <div class="flash warning">Аккаунт сайта пока не привязан к пользователю из `shop-update`, поэтому часть данных кабинета ещё недоступна.</div>
-      {% endif %}
+      <h1>{{ account_label or (user.get('username') if user else 'SaulInfo') }}</h1>
+      <p>
+        Единая точка входа для ваших подключений, обращений и статуса аккаунта.
+        Всё важное собрано в одном спокойном интерфейсе без лишней технической перегрузки.
+      </p>
+      <div class="hero-actions compact-actions">
+        <a href="{{ url_for('keys_page') }}" class="button primary">Открыть ключи</a>
+        <a href="{{ url_for('support_page') }}" class="button ghost">Открыть поддержку</a>
+      </div>
     </div>
-    <div class="dashboard-hero-aside">
+    <div class="dashboard-banner-side">
       <div class="hero-meta">
-        <strong>Статус доступа</strong>
-        <span class="muted">{% if user %}Аккаунт привязан и готов к работе.{% else %}Нужна привязка к существующему пользователю.{% endif %}</span>
+        <strong>E-mail</strong>
+        <span class="muted">{{ account.email if account else '—' }}</span>
       </div>
       <div class="hero-meta">
-        <strong>Поддержка</strong>
-        <span class="muted">Все обращения и история взаимодействия остаются внутри кабинета.</span>
+        <strong>Привязка к системе</strong>
+        <span class="muted">{% if user %}ID {{ user.get('telegram_id') }}{% else %}Пока не настроена{% endif %}</span>
       </div>
     </div>
   </section>
 
-  <section class="metric-grid">
-    <article class="metric">
-      <span>Баланс</span>
-      <strong>{{ '%.2f'|format((user.get('balance', 0) if user else 0) or 0) }} RUB</strong>
+  <section class="stats-grid-modern">
+    <article class="stat-card-modern">
+      <span class="stat-label">Баланс</span>
+      <strong class="stat-value">{{ '%.2f'|format((user.get('balance', 0) if user else 0) or 0) }} RUB</strong>
+      <span class="stat-note">Актуальный остаток по аккаунту</span>
     </article>
-    <article class="metric">
-      <span>Потрачено</span>
-      <strong>{{ '%.2f'|format((user.get('total_spent', 0) if user else 0) or 0) }} RUB</strong>
+    <article class="stat-card-modern">
+      <span class="stat-label">Ключи</span>
+      <strong class="stat-value">{{ active_keys_count }}</strong>
+      <span class="stat-note">Активных подключений в кабинете</span>
     </article>
-    <article class="metric">
-      <span>Месяцев</span>
-      <strong>{{ (user.get('total_months', 0) if user else 0) or 0 }}</strong>
+    <article class="stat-card-modern">
+      <span class="stat-label">Обращения</span>
+      <strong class="stat-value">{{ open_tickets_count }}</strong>
+      <span class="stat-note">Текущих открытых тикетов</span>
     </article>
-    <article class="metric">
-      <span>Рефералов</span>
-      <strong>{{ referrals|length }}</strong>
+    <article class="stat-card-modern">
+      <span class="stat-label">Рефералы</span>
+      <strong class="stat-value">{{ referrals|length }}</strong>
+      <span class="stat-note">Связанных реферальных записей</span>
     </article>
   </section>
 
-  <section class="dashboard-grid">
-    <article class="dashboard-card">
-      <span class="eyebrow">Доступы</span>
-      <h2>Ключи и подключения</h2>
-      <p>Все активные ключи и их состояние по подключённым хостам.</p>
-      <div class="list">
-        {% for key in keys %}
-        <div class="list-item">
-          <div>
-            <strong>{{ key.get('host_name', 'Хост не указан') }}</strong>
-            <div class="muted">{{ key.get('key_email', 'Без e-mail') }}</div>
-          </div>
-          <div class="muted">{{ key.get('expiry_date') or '—' }}</div>
+  <section class="content-grid-two">
+    <article class="page-card">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Статус</span>
+          <h2>Быстрая сводка</h2>
         </div>
-        {% else %}
-        <div class="empty-state">Ключей пока нет.</div>
-        {% endfor %}
+      </div>
+      <div class="summary-list">
+        <div class="summary-row">
+          <strong>Потрачено</strong>
+          <span>{{ '%.2f'|format((user.get('total_spent', 0) if user else 0) or 0) }} RUB</span>
+        </div>
+        <div class="summary-row">
+          <strong>Месяцев использования</strong>
+          <span>{{ (user.get('total_months', 0) if user else 0) or 0 }}</span>
+        </div>
+        <div class="summary-row">
+          <strong>Создано ключей</strong>
+          <span>{{ keys|length }}</span>
+        </div>
+        <div class="summary-row">
+          <strong>Тарифных площадок</strong>
+          <span>{{ hosts|length }}</span>
+        </div>
       </div>
     </article>
 
-    <article class="dashboard-card">
-      <span class="eyebrow">Поддержка</span>
-      <h2>Обращения и статусы</h2>
-      <p>История ваших тикетов и текущее состояние запросов.</p>
-      <div class="list">
-        {% for ticket in tickets %}
-        <div class="support-item">
+    <article class="page-card">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Последние обращения</span>
+          <h2>Поддержка</h2>
+        </div>
+        <a href="{{ url_for('support_page') }}" class="button ghost small">Все обращения</a>
+      </div>
+      <div class="stack-list">
+        {% for ticket in tickets[:3] %}
+        <div class="ticket-item">
           <div>
             <strong>#{{ ticket.get('ticket_id', '—') }}</strong>
             <div class="muted">{{ ticket.get('subject') or 'Без темы' }}</div>
           </div>
-          <div class="muted">{{ ticket.get('status', 'unknown') }}</div>
+          <span class="status-pill">{{ ticket.get('status', 'unknown') }}</span>
         </div>
         {% else %}
         <div class="empty-state">Обращений пока нет.</div>
         {% endfor %}
-      </div>
-    </article>
-
-    <article class="dashboard-card">
-      <span class="eyebrow">Тарифы</span>
-      <h2>Доступные варианты</h2>
-      <p>Список хостов и доступных тарифных планов в текущей системе.</p>
-      <div class="list">
-        {% for host in hosts %}
-        <div class="host-block">
-          <strong>{{ host.get('host_name', 'Хост') }}</strong>
-          {% for plan in host.get('plans', []) %}
-          <div class="list-item compact">
-            <span>{{ plan.get('plan_name', 'Тариф') }}</span>
-            <strong>{{ '%.0f'|format((plan.get('price', 0) or 0)) }} RUB</strong>
-          </div>
-          {% else %}
-          <div class="muted">Тарифы не добавлены.</div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state">Хосты пока недоступны.</div>
-        {% endfor %}
-      </div>
-    </article>
-
-    <article class="dashboard-card">
-      <span class="eyebrow">Профиль</span>
-      <h2>Состояние аккаунта</h2>
-      <p>Краткая сводка по доступу и связке с основной системой.</p>
-      <div class="list">
-        <div class="list-item">
-          <div>
-            <strong>Аккаунт сайта</strong>
-            <div class="muted">{{ account.email if account else 'Не найден' }}</div>
-          </div>
-        </div>
-        <div class="list-item">
-          <div>
-            <strong>Привязка к shop-update</strong>
-            <div class="muted">{% if user %}Активна, ID {{ user.get('telegram_id') }}{% else %}Пока не настроена{% endif %}</div>
-          </div>
-        </div>
-        <div class="list-item">
-          <div>
-            <strong>Реферальные связи</strong>
-            <div class="muted">{{ referrals|length }} активных записей</div>
-          </div>
-        </div>
       </div>
     </article>
   </section>

@@ -23,12 +23,19 @@ class AuthStore:
                     auth_user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     email TEXT NOT NULL UNIQUE,
                     password_hash TEXT NOT NULL,
+                    display_name TEXT,
                     linked_shop_user_id INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+            columns = {
+                str(row[1])
+                for row in conn.execute("PRAGMA table_info(auth_users)").fetchall()
+            }
+            if "display_name" not in columns:
+                conn.execute("ALTER TABLE auth_users ADD COLUMN display_name TEXT")
             conn.commit()
 
     def create_user(self, email: str, password: str, linked_shop_user_id: int | None = None) -> tuple[bool, str]:
@@ -43,12 +50,13 @@ class AuthStore:
             with closing(self._connect()) as conn:
                 conn.execute(
                     """
-                    INSERT INTO auth_users (email, password_hash, linked_shop_user_id, updated_at)
-                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    INSERT INTO auth_users (email, password_hash, display_name, linked_shop_user_id, updated_at)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
                     (
                         cleaned_email,
                         generate_password_hash(cleaned_password),
+                        None,
                         int(linked_shop_user_id) if linked_shop_user_id not in (None, "") else None,
                     ),
                 )
@@ -64,7 +72,7 @@ class AuthStore:
         with closing(self._connect()) as conn:
             row = conn.execute(
                 """
-                SELECT auth_user_id, email, password_hash, linked_shop_user_id, created_at, updated_at
+                SELECT auth_user_id, email, display_name, password_hash, linked_shop_user_id, created_at, updated_at
                 FROM auth_users
                 WHERE email = ?
                 LIMIT 1
@@ -78,6 +86,7 @@ class AuthStore:
             return {
                 "auth_user_id": int(row["auth_user_id"]),
                 "email": row["email"],
+                "display_name": row["display_name"],
                 "linked_shop_user_id": row["linked_shop_user_id"],
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
@@ -87,7 +96,7 @@ class AuthStore:
         with closing(self._connect()) as conn:
             row = conn.execute(
                 """
-                SELECT auth_user_id, email, linked_shop_user_id, created_at, updated_at
+                SELECT auth_user_id, email, display_name, linked_shop_user_id, created_at, updated_at
                 FROM auth_users
                 WHERE auth_user_id = ?
                 LIMIT 1
@@ -95,3 +104,48 @@ class AuthStore:
                 (int(auth_user_id),),
             ).fetchone()
             return dict(row) if row else None
+
+    def update_profile(self, auth_user_id: int, display_name: str) -> tuple[bool, str]:
+        cleaned_name = (display_name or "").strip()
+        with closing(self._connect()) as conn:
+            conn.execute(
+                """
+                UPDATE auth_users
+                SET display_name = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE auth_user_id = ?
+                """,
+                (cleaned_name or None, int(auth_user_id)),
+            )
+            conn.commit()
+        return True, "Профиль обновлён."
+
+    def change_password(self, auth_user_id: int, current_password: str, new_password: str) -> tuple[bool, str]:
+        cleaned_new_password = (new_password or "").strip()
+        if len(cleaned_new_password) < 6:
+            return False, "Пароль должен быть не короче 6 символов."
+
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                """
+                SELECT password_hash
+                FROM auth_users
+                WHERE auth_user_id = ?
+                LIMIT 1
+                """,
+                (int(auth_user_id),),
+            ).fetchone()
+            if not row:
+                return False, "Аккаунт не найден."
+            if not check_password_hash(row["password_hash"], current_password or ""):
+                return False, "Текущий пароль указан неверно."
+
+            conn.execute(
+                """
+                UPDATE auth_users
+                SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE auth_user_id = ?
+                """,
+                (generate_password_hash(cleaned_new_password), int(auth_user_id)),
+            )
+            conn.commit()
+        return True, "Пароль обновлён."

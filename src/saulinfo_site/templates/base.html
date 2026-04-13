@@ -16,9 +16,22 @@
           <a href="{{ url_for('index') }}" class="brand">SaulInfo</a>
           <span class="brand-subtitle">Личный кабинет и защищённый доступ к сервису</span>
         </div>
+
+        {% if current_account or current_user %}
+        <nav class="site-nav" aria-label="Навигация по кабинету">
+          <a href="{{ url_for('dashboard_page') }}" class="nav-link{% if request.endpoint == 'dashboard_page' %} active{% endif %}">Кабинет</a>
+          <a href="{{ url_for('keys_page') }}" class="nav-link{% if request.endpoint == 'keys_page' %} active{% endif %}">Ключи</a>
+          <a href="{{ url_for('support_page') }}" class="nav-link{% if request.endpoint == 'support_page' %} active{% endif %}">Поддержка</a>
+          <a href="{{ url_for('profile_page') }}" class="nav-link{% if request.endpoint == 'profile_page' %} active{% endif %}">Профиль</a>
+        </nav>
+        {% endif %}
+
         <div class="header-actions">
           {% if current_account or current_user %}
-          <span class="header-user">{{ (current_account.email if current_account else None) or (current_user.get('display_name') if current_user else None) or (current_user.get('username') if current_user else None) or (current_user.get('telegram_id') if current_user else '') }}</span>
+          <div class="header-account">
+            <span class="header-user">{{ account_label or (current_user.get('username') if current_user else '') }}</span>
+            <span class="header-user-subtle">{{ current_account.email if current_account else '' }}</span>
+          </div>
           <form action="{{ url_for('logout_page') }}" method="post">
             <button type="submit" class="button ghost">Выйти</button>
           </form>

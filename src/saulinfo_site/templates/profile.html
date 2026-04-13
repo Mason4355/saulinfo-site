@@ -1,0 +1,60 @@
+﻿{% extends "base.html" %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+<main class="inner-page profile-page">
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">Профиль</span>
+      <h1>Настройки профиля</h1>
+    </div>
+  </section>
+
+  <section class="content-grid-two profile-layout">
+    <article class="page-card">
+      <span class="eyebrow">Личная информация</span>
+      <h2>Основные данные</h2>
+      <form method="post" class="auth-form">
+        <input type="hidden" name="action" value="profile" />
+        <label class="form-label">
+          <span>E-mail</span>
+          <input type="email" value="{{ account.email if account else '' }}" disabled />
+        </label>
+        <label class="form-label">
+          <span>Имя в кабинете</span>
+          <input type="text" name="display_name" value="{{ account.get('display_name', '') if account else '' }}" placeholder="Ваше имя" />
+        </label>
+        <label class="form-label">
+          <span>Telegram ID</span>
+          <input type="text" value="{{ user.get('telegram_id') if user else 'Не привязан' }}" disabled />
+        </label>
+        <button type="submit" class="button primary wide">Сохранить изменения</button>
+      </form>
+    </article>
+
+    <article class="page-card">
+      <span class="eyebrow">Безопасность</span>
+      <h2>Смена пароля</h2>
+      <form method="post" class="auth-form">
+        <input type="hidden" name="action" value="password" />
+        <label class="form-label">
+          <span>Текущий пароль</span>
+          <input type="password" name="current_password" required />
+        </label>
+        <label class="form-label">
+          <span>Новый пароль</span>
+          <input type="password" name="new_password" required />
+        </label>
+        <label class="form-label">
+          <span>Подтвердите новый пароль</span>
+          <input type="password" name="confirm_password" required />
+        </label>
+        <button type="submit" class="button primary wide">Обновить пароль</button>
+      </form>
+      <div class="info-note">
+        <strong>2FA</strong>
+        <span>Дополнительная защита аккаунта будет добавлена следующим этапом.</span>
+      </div>
+    </article>
+  </section>
+</main>
+{% endblock %}
