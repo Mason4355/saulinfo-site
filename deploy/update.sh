@@ -5,6 +5,7 @@ PROJECT_DIR="${PROJECT_DIR:-/root/saulinfo-site}"
 BRANCH="${BRANCH:-main}"
 CONTAINER_NAME="${CONTAINER_NAME:-saulinfo-site}"
 WAIT_SECONDS="${WAIT_SECONDS:-90}"
+DOCKER_CLEANUP="${DOCKER_CLEANUP:-1}"
 
 log() {
   echo "[saulinfo-site:update] $*"
@@ -73,7 +74,12 @@ while true; do
   sleep 3
 done
 
-log "Pruning dangling Docker images"
-docker image prune -f >/dev/null 2>&1 || true
+if [ "${DOCKER_CLEANUP}" = "1" ]; then
+  log "Pruning Docker builder cache"
+  docker builder prune -f >/dev/null 2>&1 || true
+
+  log "Pruning dangling Docker images"
+  docker image prune -f >/dev/null 2>&1 || true
+fi
 
 log "Update complete: ${REMOTE_COMMIT}"
