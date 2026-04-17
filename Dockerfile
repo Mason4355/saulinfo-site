@@ -6,7 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app/project
 
-RUN python -m venv /opt/venv
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-markupsafe \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv --system-site-packages /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY pyproject.toml README.md ./
