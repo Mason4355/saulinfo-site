@@ -60,6 +60,43 @@ class ShopUpdateGateway:
                 return None
             return str(row[0]) if row[0] is not None else None
 
+    def get_enabled_site_payment_methods(self) -> list[dict]:
+        methods: list[dict] = [
+            {
+                "code": "balance",
+                "label": "Баланс аккаунта",
+                "provider": "SaulInfo",
+                "note": "Списание с внутреннего баланса клиента.",
+            }
+        ]
+
+        yookassa_shop_id = (self.get_setting("yookassa_shop_id") or "").strip()
+        yookassa_secret_key = (self.get_setting("yookassa_secret_key") or "").strip()
+        if yookassa_shop_id and yookassa_secret_key:
+            methods.append(
+                {
+                    "code": "yookassa",
+                    "label": "Банковская карта / СБП",
+                    "provider": "YooKassa",
+                    "note": "Оплата через форму YooKassa с возвратом на сайт.",
+                }
+            )
+
+        yoomoney_enabled = str(self.get_setting("yoomoney_enabled") or "").strip().lower() in {"1", "true", "yes", "on"}
+        yoomoney_wallet = (self.get_setting("yoomoney_wallet") or "").strip()
+        yoomoney_api_token = (self.get_setting("yoomoney_api_token") or "").strip()
+        if yoomoney_enabled and yoomoney_wallet and yoomoney_api_token:
+            methods.append(
+                {
+                    "code": "yoomoney",
+                    "label": "ЮMoney",
+                    "provider": "YooMoney",
+                    "note": "Быстрый платёж ЮMoney с проверкой возврата на сайт.",
+                }
+            )
+
+        return methods
+
     def get_host(self, host_name: str) -> dict | None:
         cleaned_host = self._normalize_host_name(host_name)
         if not cleaned_host:
@@ -97,6 +134,104 @@ class ShopUpdateGateway:
             conn.commit()
             row = conn.execute("SELECT * FROM users WHERE telegram_id = ?", (shop_user_id,)).fetchone()
             return dict(row) if row else None
+
+    def create_pending_transaction(self, payment_id: str, user_id: int, amount_rub: float, metadata: dict) -> int | None:
+        payload = dict(metadata or {})
+        payload.setdefault("payment_id", payment_id)
+        with closing(self._connect()) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO transactions (payment_id, user_id, status, amount_rub, metadata)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    (payment_id or "").strip(),
+                    int(user_id),
+                    "pending",
+                    float(amount_rub or 0),
+                    json.dumps(payload, ensure_ascii=False),
+                ),
+            )
+            conn.commit()
+            return int(cursor.lastrowid)
+
+    def get_transaction_by_payment_id(self, payment_id: str) -> dict | None:
+        cleaned_id = (payment_id or "").strip()
+        if not cleaned_id:
+            return None
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT * FROM transactions WHERE payment_id = ? LIMIT 1",
+                (cleaned_id,),
+            ).fetchone()
+            if not row:
+                return None
+            item = dict(row)
+            raw_metadata = item.get("metadata")
+            try:
+                item["parsed_metadata"] = json.loads(raw_metadata) if raw_metadata else {}
+            except Exception:
+                item["parsed_metadata"] = {}
+            if not isinstance(item["parsed_metadata"], dict):
+                item["parsed_metadata"] = {}
+            return item
+
+    def update_transaction_metadata(self, payment_id: str, metadata: dict) -> bool:
+        cleaned_id = (payment_id or "").strip()
+        if not cleaned_id:
+            return False
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "UPDATE transactions SET metadata = ? WHERE payment_id = ?",
+                (json.dumps(metadata or {}, ensure_ascii=False), cleaned_id),
+            )
+            conn.commit()
+            return True
+
+    def finalize_pending_transaction(
+        self,
+        payment_id: str,
+        payment_method: str,
+        amount_rub: float | None = None,
+        amount_currency: float | None = None,
+        currency_name: str | None = None,
+    ) -> dict | None:
+        cleaned_id = (payment_id or "").strip()
+        if not cleaned_id:
+            return None
+        with closing(self._connect()) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT * FROM transactions WHERE payment_id = ? AND status = 'pending' LIMIT 1",
+                (cleaned_id,),
+            ).fetchone()
+            if not row:
+                return None
+
+            conn.execute(
+                """
+                UPDATE transactions
+                SET status = 'paid',
+                    amount_rub = COALESCE(?, amount_rub),
+                    amount_currency = COALESCE(?, amount_currency),
+                    currency_name = COALESCE(?, currency_name),
+                    payment_method = COALESCE(?, payment_method)
+                WHERE payment_id = ?
+                """,
+                (amount_rub, amount_currency, currency_name, payment_method, cleaned_id),
+            )
+            conn.commit()
+
+            try:
+                metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+            except Exception:
+                metadata = {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            metadata.setdefault("payment_id", cleaned_id)
+            metadata["payment_method"] = payment_method
+            return metadata
 
     def _build_subscription_link(self, host_name: str | None, client_uuid: str | None) -> str | None:
         cleaned_uuid = (client_uuid or "").strip()
@@ -270,9 +405,16 @@ class ShopUpdateGateway:
             )
             conn.commit()
 
-    def log_balance_transaction(self, user_id: int, username: str, amount_rub: float, metadata: dict) -> None:
+    def log_balance_transaction(
+        self,
+        user_id: int,
+        username: str,
+        amount_rub: float,
+        metadata: dict,
+        payment_method: str = "Balance",
+    ) -> None:
         payload = dict(metadata or {})
-        payload.setdefault("payment_method", "Balance")
+        payload.setdefault("payment_method", payment_method)
         payload.setdefault("created_via", "saulinfo-site")
         with closing(self._connect()) as conn:
             conn.execute(
@@ -287,7 +429,7 @@ class ShopUpdateGateway:
                     int(user_id),
                     "paid",
                     float(amount_rub or 0),
-                    "Balance",
+                    payment_method,
                     json.dumps(payload, ensure_ascii=False),
                     datetime.now(),
                 ),
