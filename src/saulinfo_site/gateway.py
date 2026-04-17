@@ -1,5 +1,8 @@
 import sqlite3
 from contextlib import closing
+from datetime import datetime
+import json
+import re
 from urllib.parse import urlparse
 
 from saulinfo_site.config import Config
@@ -32,6 +35,21 @@ class ShopUpdateGateway:
     def _pick_existing_columns(self, available: set[str], *requested: str) -> list[str]:
         return [column for column in requested if column in available]
 
+    def _normalize_host_name(self, name: str | None) -> str:
+        cleaned = (name or "").strip()
+        for char in ("\u00A0", "\u200B", "\u200C", "\u200D", "\uFEFF"):
+            cleaned = cleaned.replace(char, "")
+        return cleaned
+
+    def _site_shop_user_id(self, auth_user_id: int) -> int:
+        return -1_000_000_000 - int(auth_user_id)
+
+    def _site_username(self, auth_user_id: int, email: str, display_name: str | None) -> str:
+        base = (display_name or "").strip() or (email or "").split("@", 1)[0]
+        slug = re.sub(r"[^a-zA-Z0-9._-]+", "_", base).strip("._-")
+        slug = slug[:24] or f"site_{int(auth_user_id)}"
+        return f"site_{slug}"
+
     def get_setting(self, key: str) -> str | None:
         with closing(self._connect()) as conn:
             row = conn.execute(
@@ -43,7 +61,7 @@ class ShopUpdateGateway:
             return str(row[0]) if row[0] is not None else None
 
     def get_host(self, host_name: str) -> dict | None:
-        cleaned_host = (host_name or "").strip()
+        cleaned_host = self._normalize_host_name(host_name)
         if not cleaned_host:
             return None
         with closing(self._connect()) as conn:
@@ -51,6 +69,33 @@ class ShopUpdateGateway:
                 "SELECT * FROM xui_hosts WHERE TRIM(host_name) = TRIM(?) LIMIT 1",
                 (cleaned_host,),
             ).fetchone()
+            return dict(row) if row else None
+
+    def ensure_site_customer(self, auth_user_id: int, email: str, display_name: str | None = None) -> dict | None:
+        shop_user_id = self._site_shop_user_id(auth_user_id)
+        username = self._site_username(auth_user_id, email, display_name)
+        with closing(self._connect()) as conn:
+            existing = conn.execute(
+                "SELECT * FROM users WHERE telegram_id = ? LIMIT 1",
+                (shop_user_id,),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE users SET username = ? WHERE telegram_id = ?",
+                    (username, shop_user_id),
+                )
+                conn.commit()
+                return dict(conn.execute("SELECT * FROM users WHERE telegram_id = ?", (shop_user_id,)).fetchone())
+
+            conn.execute(
+                """
+                INSERT INTO users (telegram_id, username, registration_date)
+                VALUES (?, ?, ?)
+                """,
+                (shop_user_id, username, datetime.now()),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM users WHERE telegram_id = ?", (shop_user_id,)).fetchone()
             return dict(row) if row else None
 
     def _build_subscription_link(self, host_name: str | None, client_uuid: str | None) -> str | None:
@@ -85,6 +130,169 @@ class ShopUpdateGateway:
                 )
                 items.append(item)
             return items
+
+    def get_balance(self, user_id: int) -> float:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT balance FROM users WHERE telegram_id = ? LIMIT 1",
+                (int(user_id),),
+            ).fetchone()
+            if not row:
+                return 0.0
+            return float(row[0] or 0.0)
+
+    def deduct_from_balance(self, user_id: int, amount: float) -> bool:
+        normalized_amount = float(amount or 0)
+        if normalized_amount <= 0:
+            return False
+        with closing(self._connect()) as conn:
+            current_balance = self.get_balance(int(user_id))
+            if current_balance < normalized_amount:
+                return False
+            conn.execute(
+                "UPDATE users SET balance = balance - ? WHERE telegram_id = ?",
+                (normalized_amount, int(user_id)),
+            )
+            conn.commit()
+            return True
+
+    def add_to_balance(self, user_id: int, amount: float) -> bool:
+        normalized_amount = float(amount or 0)
+        if normalized_amount <= 0:
+            return False
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "UPDATE users SET balance = balance + ? WHERE telegram_id = ?",
+                (normalized_amount, int(user_id)),
+            )
+            conn.commit()
+            return True
+
+    def get_plan_by_id(self, plan_id: int) -> dict | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT * FROM plans WHERE plan_id = ? LIMIT 1",
+                (int(plan_id),),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_key_by_id(self, key_id: int) -> dict | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT * FROM vpn_keys WHERE key_id = ? LIMIT 1",
+                (int(key_id),),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_key_by_email(self, key_email: str) -> dict | None:
+        cleaned_email = (key_email or "").strip()
+        if not cleaned_email:
+            return None
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT * FROM vpn_keys WHERE key_email = ? LIMIT 1",
+                (cleaned_email,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def generate_site_key_email(self, account_email: str, user_id: int) -> str:
+        local = (account_email or "").split("@", 1)[0]
+        slug = re.sub(r"[^a-zA-Z0-9._-]+", "_", local).strip("._-")[:24] or f"user{int(user_id)}"
+        suffix = 1
+        while True:
+            candidate = f"{slug}{'' if suffix == 1 else f'-{suffix}'}@site.local"
+            if not self.get_key_by_email(candidate):
+                return candidate
+            suffix += 1
+
+    def add_new_key(self, user_id: int, host_name: str, xui_client_uuid: str, key_email: str, expiry_timestamp_ms: int) -> int | None:
+        normalized_host = self._normalize_host_name(host_name)
+        expiry_ts = int(expiry_timestamp_ms or 0)
+        expiry_date = datetime.fromtimestamp(expiry_ts / 1000) if expiry_ts > 0 else None
+        with closing(self._connect()) as conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO vpn_keys (user_id, host_name, xui_client_uuid, key_email, expiry_date)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (int(user_id), normalized_host, xui_client_uuid, key_email, expiry_date),
+                )
+                conn.commit()
+                return int(cursor.lastrowid)
+            except sqlite3.IntegrityError:
+                existing = None
+                if key_email:
+                    existing = conn.execute(
+                        "SELECT key_id FROM vpn_keys WHERE key_email = ? LIMIT 1",
+                        (key_email,),
+                    ).fetchone()
+                if existing is None and xui_client_uuid:
+                    existing = conn.execute(
+                        "SELECT key_id FROM vpn_keys WHERE xui_client_uuid = ? LIMIT 1",
+                        (xui_client_uuid,),
+                    ).fetchone()
+                if not existing:
+                    return None
+                key_id = int(existing[0])
+                conn.execute(
+                    """
+                    UPDATE vpn_keys
+                    SET user_id = ?, host_name = ?, xui_client_uuid = ?, key_email = ?, expiry_date = ?
+                    WHERE key_id = ?
+                    """,
+                    (int(user_id), normalized_host, xui_client_uuid, key_email, expiry_date, key_id),
+                )
+                conn.commit()
+                return key_id
+
+    def update_key_info(self, key_id: int, new_xui_uuid: str, new_expiry_ms: int) -> bool:
+        expiry_ts = int(new_expiry_ms or 0)
+        expiry_date = datetime.fromtimestamp(expiry_ts / 1000) if expiry_ts > 0 else None
+        with closing(self._connect()) as conn:
+            conn.execute(
+                """
+                UPDATE vpn_keys
+                SET xui_client_uuid = ?, expiry_date = ?
+                WHERE key_id = ?
+                """,
+                (new_xui_uuid, expiry_date, int(key_id)),
+            )
+            conn.commit()
+            return True
+
+    def update_user_stats(self, user_id: int, amount_spent: float, months_purchased: int) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "UPDATE users SET total_spent = total_spent + ?, total_months = total_months + ? WHERE telegram_id = ?",
+                (float(amount_spent or 0), int(months_purchased or 0), int(user_id)),
+            )
+            conn.commit()
+
+    def log_balance_transaction(self, user_id: int, username: str, amount_rub: float, metadata: dict) -> None:
+        payload = dict(metadata or {})
+        payload.setdefault("payment_method", "Balance")
+        payload.setdefault("created_via", "saulinfo-site")
+        with closing(self._connect()) as conn:
+            conn.execute(
+                """
+                INSERT INTO transactions
+                (username, payment_id, user_id, status, amount_rub, payment_method, metadata, created_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    (username or "").strip() or f"site_{int(user_id)}",
+                    f"site-balance-{int(user_id)}-{int(datetime.now().timestamp())}",
+                    int(user_id),
+                    "paid",
+                    float(amount_rub or 0),
+                    "Balance",
+                    json.dumps(payload, ensure_ascii=False),
+                    datetime.now(),
+                ),
+            )
+            conn.commit()
 
     def get_user_tickets(self, user_id: int) -> list[dict]:
         with closing(self._connect()) as conn:

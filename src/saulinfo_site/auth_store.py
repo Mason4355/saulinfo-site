@@ -119,6 +119,18 @@ class AuthStore:
             conn.commit()
         return True, "Профиль обновлён."
 
+    def link_shop_user(self, auth_user_id: int, shop_user_id: int) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                """
+                UPDATE auth_users
+                SET linked_shop_user_id = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE auth_user_id = ?
+                """,
+                (int(shop_user_id), int(auth_user_id)),
+            )
+            conn.commit()
+
     def change_password(self, auth_user_id: int, current_password: str, new_password: str) -> tuple[bool, str]:
         cleaned_new_password = (new_password or "").strip()
         if len(cleaned_new_password) < 6:

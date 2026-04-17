@@ -5,6 +5,7 @@ from flask import Flask, flash, redirect, render_template, request, session, url
 from saulinfo_site.auth_store import AuthStore
 from saulinfo_site.config import Config
 from saulinfo_site.gateway import ShopUpdateGateway
+from saulinfo_site.xui_bridge import create_or_update_key_on_host
 
 
 def create_app() -> Flask:
@@ -28,11 +29,43 @@ def create_app() -> Flask:
             except Exception:
                 current_account = None
 
+            if current_account and shop_user_id is None:
+                linked_shop_user_id = current_account.get("linked_shop_user_id")
+                if linked_shop_user_id is None:
+                    try:
+                        current_user = gateway.ensure_site_customer(
+                            int(current_account["auth_user_id"]),
+                            current_account.get("email", ""),
+                            current_account.get("display_name"),
+                        )
+                    except Exception:
+                        current_user = None
+                    if current_user:
+                        session["shop_user_id"] = int(current_user["telegram_id"])
+                        auth_store.link_shop_user(int(current_account["auth_user_id"]), int(current_user["telegram_id"]))
+                        shop_user_id = int(current_user["telegram_id"])
+                        current_account = auth_store.get_user(int(current_account["auth_user_id"]))
+                else:
+                    shop_user_id = int(linked_shop_user_id)
+
         if shop_user_id is not None:
             try:
                 current_user = gateway.get_user(int(shop_user_id))
             except Exception:
                 current_user = None
+
+        if current_account and current_user is None and auth_user_id not in (None, -1):
+            try:
+                current_user = gateway.ensure_site_customer(
+                    int(current_account["auth_user_id"]),
+                    current_account.get("email", ""),
+                    current_account.get("display_name"),
+                )
+            except Exception:
+                current_user = None
+            if current_user:
+                session["shop_user_id"] = int(current_user["telegram_id"])
+                auth_store.link_shop_user(int(current_account["auth_user_id"]), int(current_user["telegram_id"]))
 
         return current_account, current_user
 
@@ -181,11 +214,145 @@ def create_app() -> Flask:
         account, user = load_session_context()
         return render_template("dashboard.html", **build_dashboard_payload(account, user))
 
-    @app.route("/keys")
+    @app.route("/keys", methods=["GET", "POST"])
     @user_required
     def keys_page():
         account, user = load_session_context()
-        return render_template("keys_v2.html", **build_dashboard_payload(account, user))
+        if request.method == "POST":
+            if not account or not user:
+                flash("Сайт не смог подготовить профиль клиента для операций с ключами.", "warning")
+                return redirect(url_for("keys_page"))
+
+            action = (request.form.get("action") or "").strip()
+            plan_raw = (request.form.get("plan_id") or "").strip()
+            if not plan_raw:
+                flash("Выберите тариф для операции с ключом.", "warning")
+                return redirect(url_for("keys_page"))
+
+            try:
+                plan = gateway.get_plan_by_id(int(plan_raw))
+            except Exception:
+                plan = None
+            if not plan:
+                flash("Выбранный тариф не найден.", "warning")
+                return redirect(url_for("keys_page"))
+
+            host_name = plan.get("host_name")
+            host = gateway.get_host(host_name)
+            if not host:
+                flash("Хост для выбранного тарифа сейчас недоступен.", "danger")
+                return redirect(url_for("keys_page"))
+
+            price = float(plan.get("price") or 0)
+            months = int(plan.get("months") or 0)
+            user_id = int(user["telegram_id"])
+            username = (user.get("username") or account.get("email") or f"site_{user_id}").strip()
+
+            if price <= 0 or months <= 0:
+                flash("Тариф настроен некорректно и пока недоступен для покупки.", "danger")
+                return redirect(url_for("keys_page"))
+
+            if gateway.get_balance(user_id) < price:
+                flash("Недостаточно средств на балансе для этой операции.", "warning")
+                return redirect(url_for("keys_page"))
+
+            if action == "purchase":
+                key_email = gateway.generate_site_key_email(account.get("email", ""), user_id)
+                if not gateway.deduct_from_balance(user_id, price):
+                    flash("Не удалось списать баланс для покупки ключа.", "danger")
+                    return redirect(url_for("keys_page"))
+
+                result = create_or_update_key_on_host(host, key_email, days_to_add=months * 30)
+                if not result.get("ok"):
+                    gateway.add_to_balance(user_id, price)
+                    flash(result.get("message") or "Не удалось выдать ключ на выбранном хосте.", "danger")
+                    return redirect(url_for("keys_page"))
+
+                new_key_id = gateway.add_new_key(
+                    user_id=user_id,
+                    host_name=str(host_name),
+                    xui_client_uuid=str(result.get("client_uuid") or ""),
+                    key_email=str(result.get("email") or key_email),
+                    expiry_timestamp_ms=int(result.get("expiry_timestamp_ms") or 0),
+                )
+                if not new_key_id:
+                    gateway.add_to_balance(user_id, price)
+                    flash("Ключ создался на хосте, но не сохранился в базе. Проверьте панель.", "danger")
+                    return redirect(url_for("keys_page"))
+
+                gateway.update_user_stats(user_id, price, months)
+                gateway.log_balance_transaction(
+                    user_id,
+                    username,
+                    price,
+                    {
+                        "action": "new",
+                        "host_name": host_name,
+                        "plan_id": int(plan["plan_id"]),
+                        "plan_name": plan.get("plan_name"),
+                        "months": months,
+                        "key_id": int(new_key_id),
+                        "customer_email": account.get("email"),
+                    },
+                )
+                flash("Новый ключ успешно создан и появился в вашем кабинете.", "success")
+                return redirect(url_for("keys_page"))
+
+            if action == "renew":
+                key_raw = (request.form.get("key_id") or "").strip()
+                if not key_raw:
+                    flash("Выберите ключ, который нужно продлить.", "warning")
+                    return redirect(url_for("keys_page"))
+
+                key = gateway.get_key_by_id(int(key_raw))
+                if not key or int(key.get("user_id") or 0) != user_id:
+                    flash("Ключ для продления не найден.", "warning")
+                    return redirect(url_for("keys_page"))
+                if str(key.get("host_name") or "").strip() != str(host_name or "").strip():
+                    flash("Тариф должен принадлежать тому же хосту, что и продлеваемый ключ.", "warning")
+                    return redirect(url_for("keys_page"))
+
+                if not gateway.deduct_from_balance(user_id, price):
+                    flash("Не удалось списать баланс для продления ключа.", "danger")
+                    return redirect(url_for("keys_page"))
+
+                result = create_or_update_key_on_host(
+                    host,
+                    str(key.get("key_email") or ""),
+                    days_to_add=months * 30,
+                )
+                if not result.get("ok"):
+                    gateway.add_to_balance(user_id, price)
+                    flash(result.get("message") or "Не удалось продлить ключ на выбранном хосте.", "danger")
+                    return redirect(url_for("keys_page"))
+
+                gateway.update_key_info(
+                    int(key["key_id"]),
+                    str(result.get("client_uuid") or key.get("xui_client_uuid") or ""),
+                    int(result.get("expiry_timestamp_ms") or 0),
+                )
+                gateway.update_user_stats(user_id, price, months)
+                gateway.log_balance_transaction(
+                    user_id,
+                    username,
+                    price,
+                    {
+                        "action": "extend",
+                        "host_name": host_name,
+                        "plan_id": int(plan["plan_id"]),
+                        "plan_name": plan.get("plan_name"),
+                        "months": months,
+                        "key_id": int(key["key_id"]),
+                        "customer_email": account.get("email"),
+                    },
+                )
+                flash("Ключ успешно продлён.", "success")
+                return redirect(url_for("keys_page"))
+
+            flash("Неизвестное действие для страницы ключей.", "warning")
+            return redirect(url_for("keys_page"))
+
+        return render_template("keys_v3.html", **build_dashboard_payload(account, user))
 
     @app.route("/support", methods=["GET", "POST"])
     @user_required
