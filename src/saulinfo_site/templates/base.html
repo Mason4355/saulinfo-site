@@ -51,9 +51,9 @@
         <div class="portal-main">
           <header class="portal-topbar">
             <div>
-              {% block portal_eyebrow %}<span class="eyebrow">SaulInfo workspace</span>{% endblock %}
-              {% block portal_heading %}<h1 class="page-title">Личный кабинет</h1>{% endblock %}
-              {% block portal_subtitle %}<p class="page-subtitle">Защищённый доступ к данным, ключам и обращениям без лишней технической перегрузки.</p>{% endblock %}
+              <span class="eyebrow">{{ page_eyebrow|default('SaulInfo workspace') }}</span>
+              <h1 class="page-title">{{ page_title|default('Личный кабинет') }}</h1>
+              <p class="page-subtitle">{{ page_subtitle|default('Защищённый доступ к данным, ключам и обращениям без лишней технической перегрузки.') }}</p>
             </div>
             <div class="topbar-user">
               <strong>{{ account_label or (current_user.get('username') if current_user else 'Аккаунт SaulInfo') }}</strong>

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Кабинет{% endblock %}
-{% block portal_eyebrow %}<span class="eyebrow">Dashboard</span>{% endblock %}
-{% block portal_heading %}<h1 class="page-title">Ваш кабинет SaulInfo</h1>{% endblock %}
-{% block portal_subtitle %}<p class="page-subtitle">Сводка по аккаунту, ключам, расходам и поддержке в одном понятном интерфейсе.</p>{% endblock %}
+{% set page_eyebrow = 'Dashboard' %}
+{% set page_title = 'Ваш кабинет SaulInfo' %}
+{% set page_subtitle = 'Сводка по аккаунту, ключам, расходам и поддержке в одном понятном интерфейсе.' %}
 {% block content %}
 <section class="metric-grid">
   <article class="metric-card">

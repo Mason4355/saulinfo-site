@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Профиль{% endblock %}
-{% block portal_eyebrow %}<span class="eyebrow">Profile</span>{% endblock %}
-{% block portal_heading %}<h1 class="page-title">Профиль и безопасность</h1>{% endblock %}
-{% block portal_subtitle %}<p class="page-subtitle">Управляйте именем в кабинете, проверяйте привязку и обновляйте пароль в безопасном контуре.</p>{% endblock %}
+{% set page_eyebrow = 'Profile' %}
+{% set page_title = 'Профиль и безопасность' %}
+{% set page_subtitle = 'Управляйте именем в кабинете, проверяйте привязку и обновляйте пароль в безопасном контуре.' %}
 {% block content %}
 <section class="profile-grid">
   <article class="page-card profile-card">
