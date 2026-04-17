@@ -1,3 +1,6 @@
+import base64
+import hashlib
+import json
 import uuid
 from datetime import datetime
 from urllib.parse import urlencode
@@ -29,18 +32,55 @@ def create_app() -> Flask:
             return fallback
 
     def ensure_customer_context(account: dict | None, user: dict | None) -> tuple[dict | None, dict | None]:
-        if user or not account:
+        if not account:
+            return account, user
+
+        if user:
+            try:
+                if account.get("linked_shop_user_id") != user.get("telegram_id"):
+                    auth_store.link_shop_user(int(account["auth_user_id"]), int(user["telegram_id"]))
+                    account = auth_store.get_user(int(account["auth_user_id"])) or account
+            except Exception:
+                app.logger.exception("Failed to sync linked shop user for auth user %s", account.get("auth_user_id"))
             return account, user
 
         try:
-            ensured_user = gateway.ensure_site_customer(
+            fallback_shop_user_id = gateway.get_site_customer_id(int(account["auth_user_id"]))
+        except Exception:
+            fallback_shop_user_id = None
+
+        if fallback_shop_user_id is not None:
+            try:
+                existing_user = gateway.get_user(int(fallback_shop_user_id))
+            except Exception:
+                app.logger.exception("Failed to load fallback site customer %s", fallback_shop_user_id)
+                existing_user = None
+            if existing_user:
+                session["shop_user_id"] = int(existing_user["telegram_id"])
+                try:
+                    auth_store.link_shop_user(int(account["auth_user_id"]), int(existing_user["telegram_id"]))
+                    account = auth_store.get_user(int(account["auth_user_id"])) or account
+                except Exception:
+                    app.logger.exception("Failed to persist existing site customer link for auth user %s", account.get("auth_user_id"))
+                return account, existing_user
+
+        try:
+            ensured_user = gateway.ensure_site_customer_record(
                 int(account["auth_user_id"]),
                 account.get("email", ""),
                 account.get("display_name"),
             )
         except Exception:
             app.logger.exception("Failed to ensure site customer for auth user %s", account.get("auth_user_id"))
-            return account, None
+            try:
+                ensured_user = gateway.ensure_site_customer(
+                    int(account["auth_user_id"]),
+                    account.get("email", ""),
+                    account.get("display_name"),
+                )
+            except Exception:
+                app.logger.exception("Legacy site customer ensure also failed for auth user %s", account.get("auth_user_id"))
+                ensured_user = None
 
         if not ensured_user:
             return account, None
@@ -82,6 +122,32 @@ def create_app() -> Flask:
 
         return current_account, current_user
 
+    def ensure_portal_customer(account: dict | None, user: dict | None) -> tuple[dict | None, dict | None]:
+        account, user = ensure_customer_context(account, user)
+        if not account or user:
+            return account, user
+
+        try:
+            forced_user = gateway.ensure_site_customer_record(
+                int(account["auth_user_id"]),
+                account.get("email", ""),
+                account.get("display_name"),
+            )
+        except Exception:
+            app.logger.exception("Forced site customer ensure failed for auth user %s", account.get("auth_user_id"))
+            forced_user = None
+
+        if not forced_user:
+            return account, user
+
+        session["shop_user_id"] = int(forced_user["telegram_id"])
+        try:
+            auth_store.link_shop_user(int(account["auth_user_id"]), int(forced_user["telegram_id"]))
+            account = auth_store.get_user(int(account["auth_user_id"])) or account
+        except Exception:
+            app.logger.exception("Failed to persist forced site customer link for auth user %s", account.get("auth_user_id"))
+        return account, forced_user
+
     def public_base_url() -> str:
         forwarded_host = (request.headers.get("X-Forwarded-Host") or "").strip()
         forwarded_proto = (request.headers.get("X-Forwarded-Proto") or "").strip()
@@ -95,25 +161,42 @@ def create_app() -> Flask:
             "balance": {
                 "label": "Баланс аккаунта",
                 "provider": "SaulInfo",
-                "note": "Списание средств с внутреннего баланса клиента.",
+                "note": "Списание с внутреннего баланса клиентского профиля.",
             },
             "yookassa": {
                 "label": "Банковская карта / СБП",
                 "provider": "YooKassa",
-                "note": "Оплата через форму YooKassa с возвратом на сайт.",
+                "note": "Оплата через форму YooKassa с возвратом обратно на сайт.",
+            },
+            "heleket": {
+                "label": "Crypto",
+                "provider": "Heleket",
+                "note": "Оплата криптовалютой через Heleket с подтверждением в общей панели.",
             },
             "yoomoney": {
                 "label": "ЮMoney",
                 "provider": "YooMoney",
-                "note": "Быстрый платёж ЮMoney с проверкой возврата на сайт.",
+                "note": "Быстрый платёж ЮMoney с возвратом обратно на сайт.",
+            },
+            "cryptobot": {
+                "label": "CryptoBot",
+                "provider": "Crypto Pay",
+                "note": "Оплата в USDT через CryptoBot с последующей выдачей доступа на сайте.",
+            },
+            "tonconnect": {
+                "label": "TON Connect",
+                "provider": "TON",
+                "note": "Оплата через TON Connect с подтверждением в общей панели SaulInfo.",
             },
         }
         normalized: list[dict] = []
+        seen_codes: set[str] = set()
         for item in methods or []:
             code = str(item.get("code") or "").strip().lower()
             if not code:
                 continue
             fallback = defaults.get(code, {})
+            seen_codes.add(code)
             normalized.append(
                 {
                     "code": code,
@@ -122,14 +205,19 @@ def create_app() -> Flask:
                     "note": str(fallback.get("note") or item.get("note") or ""),
                 }
             )
-        return normalized or [
-            {
-                "code": "balance",
-                "label": "Баланс аккаунта",
-                "provider": "SaulInfo",
-                "note": "Списание средств с внутреннего баланса клиента.",
-            }
-        ]
+
+        fallback_sources = {
+            "heleket": (gateway.get_setting("heleket_merchant_id"), gateway.get_setting("heleket_api_key")),
+            "cryptobot": (gateway.get_setting("cryptobot_token"),),
+            "tonconnect": (gateway.get_setting("ton_wallet_address"), gateway.get_setting("tonapi_key")),
+        }
+        for code, values in fallback_sources.items():
+            if code in seen_codes:
+                continue
+            if all((value or "").strip() for value in values):
+                normalized.append({"code": code, **defaults[code]})
+
+        return normalized or [{"code": "balance", **defaults["balance"]}]
 
     def build_dashboard_payload(account: dict | None, user: dict | None) -> dict:
         user_id = int(user["telegram_id"]) if user else None
@@ -229,6 +317,135 @@ def create_app() -> Flask:
                 "currency_name": "RUB",
             }
         return None
+
+    def get_usdt_rub_rate() -> float | None:
+        try:
+            response = requests.get(
+                "https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=rub",
+                timeout=20,
+            )
+            if response.status_code != 200:
+                return None
+            payload = response.json()
+            value = payload.get("tether", {}).get("rub")
+            return float(value) if value else None
+        except Exception:
+            app.logger.exception("Failed to fetch USDT/RUB rate")
+            return None
+
+    def create_cryptobot_invoice(metadata: dict) -> dict:
+        token = (gateway.get_setting("cryptobot_token") or "").strip()
+        if not token:
+            raise RuntimeError("CryptoBot не настроен в панели.")
+
+        rate = get_usdt_rub_rate()
+        if not rate or rate <= 0:
+            raise RuntimeError("Не удалось получить курс USDT/RUB для CryptoBot.")
+
+        amount_usdt = round(float(metadata["price"]) / float(rate), 2)
+        payload = ":".join(
+            [
+                str(metadata["user_id"]),
+                str(metadata["months"]),
+                str(float(metadata["price"])),
+                str(metadata["action"]),
+                str(metadata.get("key_id") or ""),
+                str(metadata["host_name"]),
+                str(metadata["plan_id"]),
+                str(metadata.get("customer_email") or ""),
+                "CryptoBot",
+            ]
+        )
+
+        response = requests.post(
+            "https://pay.crypt.bot/api/createInvoice",
+            headers={"Crypto-Pay-API-Token": token},
+            json={
+                "asset": "USDT",
+                "amount": amount_usdt,
+                "description": "SaulInfo VPN payment",
+                "payload": payload,
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload_json = response.json()
+        if not payload_json.get("ok"):
+            raise RuntimeError(f"CryptoBot API error: {payload_json}")
+        result = payload_json.get("result") or {}
+        pay_url = result.get("pay_url") or result.get("bot_invoice_url")
+        if not pay_url:
+            raise RuntimeError("CryptoBot не вернул ссылку на оплату.")
+        return {"payment_url": str(pay_url)}
+
+    def build_ton_payment_url(payment_id: str, amount_rub: float) -> str:
+        wallet_address = (gateway.get_setting("ton_wallet_address") or "").strip()
+        if not wallet_address:
+            raise RuntimeError("TON Connect не настроен в панели.")
+
+        try:
+            response = requests.get(
+                "https://api.coingecko.com/api/v3/simple/price?ids=toncoin&vs_currencies=usd,rub",
+                timeout=20,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            ton_rub = payload.get("toncoin", {}).get("rub")
+            ton_amount = float(amount_rub) / float(ton_rub)
+        except Exception:
+            app.logger.exception("Failed to fetch TON/RUB rate")
+            raise RuntimeError("Не удалось получить курс TON для оплаты.")
+
+        amount_nanoton = int(ton_amount * 1_000_000_000)
+        return f"ton://transfer/{wallet_address}?{urlencode({'amount': str(amount_nanoton), 'text': payment_id})}"
+
+    def create_heleket_payment(metadata: dict) -> dict:
+        merchant_id = (gateway.get_setting("heleket_merchant_id") or "").strip()
+        api_key = (gateway.get_setting("heleket_api_key") or "").strip()
+        if not merchant_id or not api_key:
+            raise RuntimeError("Heleket ?? ???????? ? ??????.")
+
+        callback_base = (gateway.get_setting("domain") or "").strip() or Config.SHOP_UPDATE_PANEL_URL
+        callback_url = f"{callback_base.rstrip('/')}/heleket-webhook"
+
+        payload_metadata = {
+            "payment_id": str(metadata["payment_id"]),
+            "user_id": int(metadata["user_id"]),
+            "months": int(metadata["months"]),
+            "price": float(metadata["price"]),
+            "action": str(metadata["action"]),
+            "key_id": metadata.get("key_id"),
+            "host_name": str(metadata["host_name"]),
+            "plan_id": int(metadata["plan_id"]),
+            "customer_email": str(metadata.get("customer_email") or ""),
+            "payment_method": "Crypto",
+        }
+
+        data = {
+            "merchant_id": merchant_id,
+            "order_id": str(uuid.uuid4()),
+            "amount": float(metadata["price"]),
+            "currency": "RUB",
+            "description": json.dumps(payload_metadata, ensure_ascii=False, separators=(",", ":")),
+            "callback_url": callback_url,
+            "success_url": f"{public_base_url()}{url_for('keys_payment_pending_page', payment_id=metadata['payment_id'])}",
+        }
+
+        sorted_data = json.dumps(data, sort_keys=True, separators=(",", ":"))
+        sign = hashlib.md5(f"{base64.b64encode(sorted_data.encode()).decode()}{api_key}".encode()).hexdigest()
+
+        api_base = (gateway.get_setting("heleket_api_base") or "https://api.heleket.com").rstrip("/")
+        response = requests.post(
+            f"{api_base}/invoice/create",
+            json={**data, "sign": sign},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        pay_url = payload.get("payment_url") or payload.get("pay_url") or payload.get("url")
+        if not pay_url:
+            raise RuntimeError("Heleket ?? ?????? ?????? ?? ??????.")
+        return {"payment_url": str(pay_url), "provider": "Heleket", "payment_method": "Crypto"}
 
     def create_yookassa_payment(payment_id: str, amount_rub: float, description: str, return_url: str) -> dict:
         shop_id = (gateway.get_setting("yookassa_shop_id") or "").strip()
@@ -578,14 +795,14 @@ def create_app() -> Flask:
     @user_required
     def dashboard_page():
         account, user = load_session_context()
-        account, user = ensure_customer_context(account, user)
+        account, user = ensure_portal_customer(account, user)
         return render_template("dashboard.html", **build_dashboard_payload(account, user))
 
     @app.route("/keys", methods=["GET", "POST"])
     @user_required
     def keys_page():
         account, user = load_session_context()
-        account, user = ensure_customer_context(account, user)
+        account, user = ensure_portal_customer(account, user)
         context = build_keys_context(account, user)
         if request.method == "POST":
             if not account or not user:
@@ -671,6 +888,7 @@ def create_app() -> Flask:
                         description=f"SaulInfo: {'покупка ключа' if action == 'purchase' else 'продление ключа'} на {months} мес.",
                         return_url=f"{public_base_url()}{url_for('keys_payment_yookassa_return', payment_id=payment_id)}",
                     )
+                    order_metadata["payment_method"] = "yookassa"
                     order_metadata["provider"] = "YooKassa"
                     order_metadata["provider_payment_id"] = payment["provider_payment_id"]
                     gateway.create_pending_transaction(payment_id, int(user["telegram_id"]), price, order_metadata)
@@ -688,6 +906,7 @@ def create_app() -> Flask:
                     flash("Оплата через ЮMoney временно недоступна.", "warning")
                     return redirect(url_for("keys_page"))
 
+                order_metadata["payment_method"] = "yoomoney"
                 order_metadata["provider"] = "YooMoney"
                 gateway.create_pending_transaction(payment_id, int(user["telegram_id"]), price, order_metadata)
                 return redirect(
@@ -700,10 +919,112 @@ def create_app() -> Flask:
                     )
                 )
 
+            if payment_method == "cryptobot":
+                try:
+                    order_metadata["user_id"] = int(user["telegram_id"])
+                    invoice = create_cryptobot_invoice(order_metadata)
+                    order_metadata["payment_method"] = "cryptobot"
+                    order_metadata["provider"] = "CryptoBot"
+                    order_metadata["payment_url"] = invoice["payment_url"]
+                    gateway.create_pending_transaction(payment_id, int(user["telegram_id"]), price, order_metadata)
+                    gateway.update_transaction_metadata(payment_id, order_metadata)
+                    return redirect(url_for("keys_payment_pending_page", payment_id=payment_id))
+                except Exception:
+                    app.logger.exception("Failed to create CryptoBot invoice for site order")
+                    flash("Не удалось создать ссылку на оплату через CryptoBot.", "danger")
+                    return redirect(url_for("keys_page"))
+
+            if payment_method == "heleket":
+                try:
+                    order_metadata["user_id"] = int(user["telegram_id"])
+                    payment = create_heleket_payment(order_metadata)
+                    order_metadata["payment_method"] = "heleket"
+                    order_metadata["provider"] = payment.get("provider") or "Heleket"
+                    order_metadata["payment_url"] = payment["payment_url"]
+                    gateway.create_pending_transaction(payment_id, int(user["telegram_id"]), price, order_metadata)
+                    gateway.update_transaction_metadata(payment_id, order_metadata)
+                    return redirect(url_for("keys_payment_pending_page", payment_id=payment_id))
+                except Exception:
+                    app.logger.exception("Failed to create Heleket invoice for site order")
+                    flash("Не удалось создать ссылку на оплату через Heleket.", "danger")
+                    return redirect(url_for("keys_page"))
+
+            if payment_method in {"ton", "tonconnect"}:
+                try:
+                    order_metadata["payment_method"] = "tonconnect"
+                    order_metadata["provider"] = "TON Connect"
+                    order_metadata["payment_url"] = build_ton_payment_url(payment_id, price)
+                    gateway.create_pending_transaction(payment_id, int(user["telegram_id"]), price, order_metadata)
+                    gateway.update_transaction_metadata(payment_id, order_metadata)
+                    return redirect(url_for("keys_payment_pending_page", payment_id=payment_id))
+                except Exception:
+                    app.logger.exception("Failed to prepare TON payment for site order")
+                    flash("Не удалось подготовить оплату через TON Connect.", "danger")
+                    return redirect(url_for("keys_page"))
+
             flash("Этот способ оплаты пока не поддерживается на сайте.", "warning")
             return redirect(url_for("keys_page"))
 
         return render_template("keys_site.html", **context)
+
+    @app.route("/keys/payment/pending/<payment_id>")
+    @user_required
+    def keys_payment_pending_page(payment_id: str):
+        account, user = load_session_context()
+        account, user = ensure_portal_customer(account, user)
+        transaction = gateway.get_transaction_by_payment_id(payment_id)
+        if not account or not user or not transaction or int(transaction.get("user_id") or 0) != int(user["telegram_id"]):
+            flash("Платёж для этой сессии не найден.", "warning")
+            return redirect(url_for("keys_page"))
+
+        metadata = dict(transaction.get("parsed_metadata") or {})
+        return render_template(
+            "payment_pending_site.html",
+            account=account,
+            user=user,
+            payment_id=payment_id,
+            payment_url=metadata.get("payment_url"),
+            payment_method=metadata.get("payment_method") or metadata.get("provider") or "External",
+            check_url=url_for("keys_payment_pending_check", payment_id=payment_id),
+        )
+
+    @app.route("/keys/payment/check/<payment_id>")
+    @user_required
+    def keys_payment_pending_check(payment_id: str):
+        account, user = load_session_context()
+        account, user = ensure_portal_customer(account, user)
+        transaction = gateway.get_transaction_by_payment_id(payment_id)
+        if not account or not user or not transaction or int(transaction.get("user_id") or 0) != int(user["telegram_id"]):
+            flash("Платёж для этой сессии не найден.", "warning")
+            return redirect(url_for("keys_page"))
+
+        metadata = dict(transaction.get("parsed_metadata") or {})
+        if str(transaction.get("status") or "").strip().lower() == "paid":
+            if metadata.get("fulfilled"):
+                flash(
+                    "Платёж уже подтверждён, а доступ отражён в кабинете. Если ключ не виден сразу, обновите страницу.",
+                    "success",
+                )
+                return redirect(url_for("keys_page"))
+
+            payment_method = str(metadata.get("payment_method") or metadata.get("provider") or "External")
+            category, message = handle_paid_order(
+                account,
+                user,
+                payment_id,
+                payment_method,
+                lambda _metadata, amount=float(transaction.get("amount_rub") or metadata.get("price") or 0): {
+                    "amount": amount,
+                    "currency_name": "RUB",
+                },
+            )
+            flash(message, category)
+            return redirect(url_for("keys_page"))
+            flash("Платёж подтверждён. Если доступ уже создан панелью, он появится в списке ключей после обновления страницы.", "success")
+            return redirect(url_for("keys_page"))
+
+        flash("Платёж ещё не подтверждён. Если вы уже оплатили, проверьте статус немного позже.", "warning")
+        return redirect(url_for("keys_payment_pending_page", payment_id=payment_id))
 
     @app.route("/keys/payment/yookassa/return")
     @user_required
@@ -739,7 +1060,7 @@ def create_app() -> Flask:
     @user_required
     def support_page():
         account, user = load_session_context()
-        account, user = ensure_customer_context(account, user)
+        account, user = ensure_portal_customer(account, user)
         if request.method == "POST":
             if not account or not user:
                 flash("Сайт не смог подготовить клиентский профиль для поддержки. Попробуйте выйти и войти заново.", "warning")

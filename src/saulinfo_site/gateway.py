@@ -50,6 +50,69 @@ class ShopUpdateGateway:
         slug = slug[:24] or f"site_{int(auth_user_id)}"
         return f"site_{slug}"
 
+    def get_site_customer_id(self, auth_user_id: int) -> int:
+        return self._site_shop_user_id(auth_user_id)
+
+    def ensure_site_customer_record(self, auth_user_id: int, email: str, display_name: str | None = None) -> dict | None:
+        shop_user_id = self._site_shop_user_id(auth_user_id)
+        username = self._site_username(auth_user_id, email, display_name)
+        with closing(self._connect()) as conn:
+            user_columns = self._get_columns(conn, "users")
+            if not user_columns or "telegram_id" not in user_columns:
+                return None
+
+            now = datetime.now()
+            payload: dict = {"telegram_id": shop_user_id}
+            if "username" in user_columns:
+                payload["username"] = username
+            if "display_name" in user_columns:
+                payload["display_name"] = (display_name or "").strip() or username
+            if "email" in user_columns:
+                payload["email"] = (email or "").strip().lower() or None
+            if "registration_date" in user_columns:
+                payload["registration_date"] = now
+            if "created_at" in user_columns:
+                payload["created_at"] = now
+            if "updated_at" in user_columns:
+                payload["updated_at"] = now
+            for column in ("total_spent", "balance", "referral_balance", "referral_balance_all"):
+                if column in user_columns:
+                    payload[column] = 0
+            for column in ("total_months", "trial_used", "agreed_to_terms", "is_banned", "referral_start_bonus_received"):
+                if column in user_columns:
+                    payload[column] = 0
+            if "referred_by" in user_columns:
+                payload["referred_by"] = None
+
+            existing = conn.execute(
+                "SELECT * FROM users WHERE telegram_id = ? LIMIT 1",
+                (shop_user_id,),
+            ).fetchone()
+            if existing:
+                updates = dict(payload)
+                updates.pop("telegram_id", None)
+                assignments = [f"{column} = ?" for column in updates]
+                if assignments:
+                    conn.execute(
+                        f"UPDATE users SET {', '.join(assignments)} WHERE telegram_id = ?",
+                        (*updates.values(), shop_user_id),
+                    )
+                conn.commit()
+            else:
+                columns = list(payload.keys())
+                placeholders = ", ".join("?" for _ in columns)
+                conn.execute(
+                    f"INSERT INTO users ({', '.join(columns)}) VALUES ({placeholders})",
+                    tuple(payload[column] for column in columns),
+                )
+                conn.commit()
+
+            row = conn.execute(
+                "SELECT * FROM users WHERE telegram_id = ? LIMIT 1",
+                (shop_user_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
     def get_setting(self, key: str) -> str | None:
         with closing(self._connect()) as conn:
             row = conn.execute(
