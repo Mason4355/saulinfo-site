@@ -28,6 +28,9 @@ class ShopUpdateGateway:
     def user_exists(self, user_id: int) -> bool:
         return self.get_user(user_id) is not None
 
+    def _pick_existing_columns(self, available: set[str], *requested: str) -> list[str]:
+        return [column for column in requested if column in available]
+
     def get_user_keys(self, user_id: int) -> list[dict]:
         with closing(self._connect()) as conn:
             rows = conn.execute(
@@ -47,24 +50,65 @@ class ShopUpdateGateway:
     def get_referrals(self, user_id: int) -> list[dict]:
         with closing(self._connect()) as conn:
             user_columns = self._get_columns(conn, "users")
-            name_expr = "display_name" if "display_name" in user_columns else "username AS display_name"
+            selected_columns = ["telegram_id"]
+            if "username" in user_columns:
+                selected_columns.append("username")
+            else:
+                selected_columns.append("NULL AS username")
+            if "display_name" in user_columns:
+                selected_columns.append("display_name")
+            elif "username" in user_columns:
+                selected_columns.append("username AS display_name")
+            else:
+                selected_columns.append("NULL AS display_name")
+
+            for column in self._pick_existing_columns(
+                user_columns,
+                "total_spent",
+                "registration_date",
+                "created_at",
+                "balance",
+            ):
+                selected_columns.append(column)
+
+            if "referred_by" not in user_columns:
+                return []
+
+            order_by = (
+                "registration_date DESC"
+                if "registration_date" in user_columns
+                else "created_at DESC"
+                if "created_at" in user_columns
+                else "telegram_id DESC"
+            )
             rows = conn.execute(
-                f"""
-                SELECT telegram_id, username, {name_expr}, total_spent, registration_date
-                FROM users
-                WHERE referred_by = ?
-                ORDER BY registration_date DESC
-                """,
+                f"SELECT {', '.join(selected_columns)} FROM users WHERE referred_by = ? ORDER BY {order_by}",
                 (int(user_id),),
             ).fetchall()
             return [dict(row) for row in rows]
 
     def get_hosts_with_plans(self) -> list[dict]:
         with closing(self._connect()) as conn:
-            hosts = [dict(row) for row in conn.execute("SELECT * FROM xui_hosts ORDER BY host_name").fetchall()]
+            host_columns = self._get_columns(conn, "xui_hosts")
+            if not host_columns:
+                return []
+
+            order_by = "host_name" if "host_name" in host_columns else sorted(host_columns)[0]
+            hosts = [dict(row) for row in conn.execute(f"SELECT * FROM xui_hosts ORDER BY {order_by}").fetchall()]
             for host in hosts:
+                if "host_name" not in host:
+                    host["plans"] = []
+                    continue
+
+                plan_columns = self._get_columns(conn, "plans")
+                if "host_name" not in plan_columns:
+                    host["plans"] = []
+                    continue
+
+                order_parts = [column for column in ("months", "price") if column in plan_columns]
+                order_by_plans = ", ".join(order_parts) if order_parts else "rowid"
                 plans = conn.execute(
-                    "SELECT * FROM plans WHERE host_name = ? ORDER BY months, price",
+                    f"SELECT * FROM plans WHERE host_name = ? ORDER BY {order_by_plans}",
                     (host["host_name"],),
                 ).fetchall()
                 host["plans"] = [dict(row) for row in plans]

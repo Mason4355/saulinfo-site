@@ -36,12 +36,19 @@ def create_app() -> Flask:
 
         return current_account, current_user
 
+    def safe_gateway_call(label: str, fn, fallback):
+        try:
+            return fn()
+        except Exception:
+            app.logger.exception("SaulInfo gateway call failed: %s", label)
+            return fallback
+
     def build_dashboard_payload(account: dict | None, user: dict | None) -> dict:
         user_id = int(user["telegram_id"]) if user else None
-        keys = gateway.get_user_keys(user_id) if user_id is not None else []
-        tickets = gateway.get_user_tickets(user_id) if user_id is not None else []
-        referrals = gateway.get_referrals(user_id) if user_id is not None else []
-        hosts = gateway.get_hosts_with_plans()
+        keys = safe_gateway_call("user_keys", lambda: gateway.get_user_keys(user_id), []) if user_id is not None else []
+        tickets = safe_gateway_call("user_tickets", lambda: gateway.get_user_tickets(user_id), []) if user_id is not None else []
+        referrals = safe_gateway_call("referrals", lambda: gateway.get_referrals(user_id), []) if user_id is not None else []
+        hosts = safe_gateway_call("hosts_with_plans", gateway.get_hosts_with_plans, [])
 
         active_keys = sum(1 for key in keys if (key.get("expiry_date") or "").strip())
         open_tickets = sum(
@@ -220,6 +227,20 @@ def create_app() -> Flask:
         session.pop("shop_user_id", None)
         flash("Вы вышли из кабинета.", "success")
         return redirect(url_for("index"))
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        app.logger.exception("Unhandled SaulInfo site error: %s", error)
+        had_session = session.get("auth_user_id") is not None or session.get("shop_user_id") is not None
+        if had_session:
+            session.pop("auth_user_id", None)
+            session.pop("shop_user_id", None)
+            flash("Сайт временно перезапустил пользовательскую сессию после внутренней ошибки. Попробуйте открыть страницу ещё раз.", "warning")
+            return redirect(url_for("index"))
+        return (
+            render_template("index.html"),
+            500,
+        )
 
     return app
 
