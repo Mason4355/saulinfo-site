@@ -49,6 +49,15 @@ def create_app() -> Flask:
         tickets = safe_gateway_call("user_tickets", lambda: gateway.get_user_tickets(user_id), []) if user_id is not None else []
         referrals = safe_gateway_call("referrals", lambda: gateway.get_referrals(user_id), []) if user_id is not None else []
         hosts = safe_gateway_call("hosts_with_plans", gateway.get_hosts_with_plans, [])
+        ticket_threads = {
+            int(ticket.get("ticket_id")): safe_gateway_call(
+                f"ticket_messages_{ticket.get('ticket_id')}",
+                lambda ticket_id=int(ticket.get("ticket_id")): gateway.get_ticket_messages(ticket_id),
+                [],
+            )
+            for ticket in tickets
+            if ticket.get("ticket_id") is not None
+        }
 
         active_keys = sum(1 for key in keys if (key.get("expiry_date") or "").strip())
         open_tickets = sum(
@@ -62,6 +71,7 @@ def create_app() -> Flask:
             "user": user,
             "keys": keys,
             "tickets": tickets,
+            "ticket_threads": ticket_threads,
             "referrals": referrals,
             "hosts": hosts,
             "active_keys_count": active_keys,
@@ -175,16 +185,34 @@ def create_app() -> Flask:
     @user_required
     def keys_page():
         account, user = load_session_context()
-        return render_template("keys.html", **build_dashboard_payload(account, user))
+        return render_template("keys_v2.html", **build_dashboard_payload(account, user))
 
     @app.route("/support", methods=["GET", "POST"])
     @user_required
     def support_page():
         account, user = load_session_context()
         if request.method == "POST":
-            flash("Новая форма веб-обращений будет подключена следующим этапом. История обращений уже доступна ниже.", "warning")
+            if not user:
+                flash("Для отправки обращения нужна привязка к аккаунту клиента.", "warning")
+                return redirect(url_for("support_page"))
+
+            subject = request.form.get("subject", "")
+            message = request.form.get("message", "")
+            if not (message or "").strip():
+                flash("Опишите обращение, чтобы поддержка получила текст заявки.", "warning")
+                return redirect(url_for("support_page"))
+
+            ticket_id = safe_gateway_call(
+                "create_support_ticket",
+                lambda: gateway.create_support_ticket(int(user["telegram_id"]), subject, message),
+                None,
+            )
+            if ticket_id:
+                flash(f"Обращение #{ticket_id} отправлено в поддержку.", "success")
+            else:
+                flash("Не удалось создать обращение. Попробуйте ещё раз.", "danger")
             return redirect(url_for("support_page"))
-        return render_template("support.html", **build_dashboard_payload(account, user))
+        return render_template("support_v2.html", **build_dashboard_payload(account, user))
 
     @app.route("/profile", methods=["GET", "POST"])
     @user_required

@@ -844,6 +844,60 @@ img {
   line-height: 1.5;
 }
 
+.access-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.access-code {
+  display: block;
+  max-width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: rgba(247, 249, 252, 0.9);
+  color: var(--muted-strong);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.message-thread {
+  display: grid;
+  gap: 12px;
+}
+
+.message-bubble {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.message-bubble.staff {
+  background: rgba(31, 94, 255, 0.06);
+}
+
+.message-bubble strong {
+  color: var(--muted-strong);
+  font-size: 0.92rem;
+}
+
+.message-bubble p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.message-bubble span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .marketing-footer {
   padding: 18px 24px;
 }
