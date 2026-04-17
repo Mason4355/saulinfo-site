@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
@@ -6,62 +6,126 @@
     <title>{% block title %}SaulInfo{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='site_v2.css') }}" />
   </head>
   <body>
-    <div class="page-shell">
-      <header class="site-header">
-        <div class="brand-wrap">
-          <a href="{{ url_for('index') }}" class="brand">SaulInfo</a>
-          <span class="brand-subtitle">Личный кабинет и защищённый доступ к сервису</span>
-        </div>
-
-        {% if current_account or current_user %}
-        <nav class="site-nav" aria-label="Навигация по кабинету">
-          <a href="{{ url_for('dashboard_page') }}" class="nav-link{% if request.endpoint == 'dashboard_page' %} active{% endif %}">Кабинет</a>
-          <a href="{{ url_for('keys_page') }}" class="nav-link{% if request.endpoint == 'keys_page' %} active{% endif %}">Ключи</a>
-          <a href="{{ url_for('support_page') }}" class="nav-link{% if request.endpoint == 'support_page' %} active{% endif %}">Поддержка</a>
-          <a href="{{ url_for('profile_page') }}" class="nav-link{% if request.endpoint == 'profile_page' %} active{% endif %}">Профиль</a>
-        </nav>
-        {% endif %}
-
-        <div class="header-actions">
-          {% if current_account or current_user %}
-          <div class="header-account">
-            <span class="header-user">{{ account_label or (current_user.get('username') if current_user else '') }}</span>
-            <span class="header-user-subtle">{{ current_account.email if current_account else '' }}</span>
+    <div class="layout-root">
+      {% if current_account or current_user %}
+      <div class="portal-layout">
+        <aside class="portal-sidebar">
+          <div class="sidebar-brand">
+            <a href="{{ url_for('index') }}" class="brand-lockup">
+              <span class="brand-mark">S</span>
+              <span class="brand-copy">
+                <span class="brand-name">SaulInfo</span>
+                <span class="brand-tag">Пользовательский кабинет</span>
+              </span>
+            </a>
+            <div class="sidebar-status">
+              <span class="eyebrow">Статус доступа</span>
+              <div class="sidebar-meta">
+                <strong>{{ account_label or (current_user.get('username') if current_user else 'Пользователь SaulInfo') }}</strong>
+                <span>{{ current_account.email if current_account else 'Доступ оформлен через администратора' }}</span>
+              </div>
+            </div>
           </div>
+
+          <nav class="sidebar-nav" aria-label="Навигация по кабинету">
+            <a href="{{ url_for('dashboard_page') }}" class="sidebar-link{% if request.endpoint == 'dashboard_page' %} active{% endif %}">Кабинет</a>
+            <a href="{{ url_for('keys_page') }}" class="sidebar-link{% if request.endpoint == 'keys_page' %} active{% endif %}">Ключи</a>
+            <a href="{{ url_for('support_page') }}" class="sidebar-link{% if request.endpoint == 'support_page' %} active{% endif %}">Поддержка</a>
+            <a href="{{ url_for('profile_page') }}" class="sidebar-link{% if request.endpoint == 'profile_page' %} active{% endif %}">Профиль</a>
+          </nav>
+
+          <div class="sidebar-status">
+            <span class="eyebrow">О кабинете</span>
+            <span class="sidebar-note">Доступы, профиль и история обращений собраны в одном спокойном рабочем интерфейсе.</span>
+          </div>
+
           <form action="{{ url_for('logout_page') }}" method="post">
-            <button type="submit" class="button ghost">Выйти</button>
+            <button type="submit" class="button ghost wide">Выйти из кабинета</button>
           </form>
-          {% else %}
-          <a href="{{ url_for('login_page') }}" class="button ghost">Войти</a>
-          {% if allow_self_registration %}
-          <a href="{{ url_for('register_page') }}" class="button ghost">Регистрация</a>
+        </aside>
+
+        <div class="portal-main">
+          <header class="portal-topbar">
+            <div>
+              {% block portal_eyebrow %}<span class="eyebrow">SaulInfo workspace</span>{% endblock %}
+              {% block portal_heading %}<h1 class="page-title">Личный кабинет</h1>{% endblock %}
+              {% block portal_subtitle %}<p class="page-subtitle">Защищённый доступ к данным, ключам и обращениям без лишней технической перегрузки.</p>{% endblock %}
+            </div>
+            <div class="topbar-user">
+              <strong>{{ account_label or (current_user.get('username') if current_user else 'Аккаунт SaulInfo') }}</strong>
+              <span class="muted">{{ current_account.email if current_account else 'Веб-доступ активен' }}</span>
+            </div>
+          </header>
+
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-stack">
+              {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          {% endwith %}
+
+          {% block content %}{% endblock %}
+        </div>
+      </div>
+      {% else %}
+      <div class="marketing-shell">
+        <header class="marketing-header">
+          <a href="{{ url_for('index') }}" class="brand-lockup">
+            <span class="brand-mark">S</span>
+            <span class="brand-copy">
+              <span class="brand-name">SaulInfo</span>
+              <span class="brand-tag">Кабинет, поддержка и доступы</span>
+            </span>
+          </a>
+
+          <nav class="marketing-nav" aria-label="Основная навигация">
+            <a href="{{ url_for('index') }}" class="nav-pill{% if request.endpoint == 'index' %} active{% endif %}">Главная</a>
+            <a href="{{ url_for('login_page') }}" class="nav-pill{% if request.endpoint == 'login_page' %} active{% endif %}">Вход</a>
+            {% if allow_self_registration %}
+            <a href="{{ url_for('register_page') }}" class="nav-pill{% if request.endpoint == 'register_page' %} active{% endif %}">Регистрация</a>
+            {% endif %}
+          </nav>
+
+          <div class="header-actions">
+            <a href="{{ url_for('login_page') }}" class="button ghost">Войти</a>
+            {% if allow_self_registration %}
+            <a href="{{ url_for('register_page') }}" class="button primary">Создать аккаунт</a>
+            {% endif %}
+          </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          <div class="flash-stack">
+            {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
           {% endif %}
-          {% endif %}
-        </div>
-      </header>
+        {% endwith %}
 
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div class="flash-stack">
-          {% for category, message in messages %}
-          <div class="flash {{ category }}">{{ message }}</div>
-          {% endfor %}
-        </div>
-        {% endif %}
-      {% endwith %}
+        {% block content %}{% endblock %}
 
-      {% block content %}{% endblock %}
-
-      <footer class="footer">
-        <div class="footer-inner">
-          <span>SaulInfo. Защищённый доступ, управление сервисом и поддержка в одном кабинете.</span>
-          <span>Если доступа ещё нет, обратитесь к администратору SaulInfo.</span>
-        </div>
-      </footer>
+        <footer class="marketing-footer">
+          <div class="marketing-footer-inner">
+            <span>SaulInfo. Защищённый пользовательский контур для доступа, ключей и поддержки.</span>
+            <div class="footer-actions">
+              <a href="{{ url_for('login_page') }}" class="inline-link">Открыть вход</a>
+              {% if allow_self_registration %}
+              <a href="{{ url_for('register_page') }}" class="inline-link">Создать аккаунт</a>
+              {% endif %}
+            </div>
+          </div>
+        </footer>
+      </div>
+      {% endif %}
     </div>
   </body>
 </html>

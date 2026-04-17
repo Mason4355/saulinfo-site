@@ -1,33 +1,40 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Регистрация{% endblock %}
 {% block content %}
 <main class="auth-layout">
-  <section class="auth-card">
-    <span class="eyebrow">Новый доступ</span>
-    <h1>Создание аккаунта SaulInfo</h1>
-    <p>Заполните e-mail и пароль. Если у вас уже есть пользователь в системе, можно сразу привязать аккаунт по Telegram ID.</p>
-
-    <form method="post" class="auth-form">
-      <label class="form-label">
-        <span>E-mail</span>
-        <input type="email" name="email" placeholder="name@example.com" required />
-      </label>
-      <label class="form-label">
-        <span>Пароль</span>
-        <input type="password" name="password" placeholder="Пароль не короче 6 символов" required />
-      </label>
-      <label class="form-label">
-        <span>Telegram ID</span>
-        <input type="number" name="linked_shop_user_id" placeholder="Необязательно" />
-      </label>
-      <div class="auth-actions">
+  <section class="auth-grid">
+    <article class="auth-card">
+      <span class="eyebrow">Новый доступ</span>
+      <h1>Создание аккаунта SaulInfo</h1>
+      <p>Заполните e-mail и пароль. При необходимости можно сразу привязать аккаунт к существующему пользователю по Telegram ID.</p>
+      <form method="post" class="auth-form">
+        <label class="form-label">
+          <span>E-mail</span>
+          <input type="email" name="email" placeholder="name@example.com" required />
+        </label>
+        <label class="form-label">
+          <span>Пароль</span>
+          <input type="password" name="password" placeholder="Минимум 6 символов" required />
+        </label>
+        <label class="form-label">
+          <span>Telegram ID</span>
+          <input type="number" name="linked_shop_user_id" placeholder="Необязательно" />
+        </label>
         <button type="submit" class="button primary wide">Создать аккаунт</button>
-      </div>
-    </form>
+      </form>
+      <div class="field-note">Уже есть доступ? <a href="{{ url_for('login_page') }}" class="inline-link">Войти в кабинет</a></div>
+    </article>
 
-    <div class="muted auth-link-row">
-      Уже есть аккаунт? <a href="{{ url_for('login_page') }}">Войти</a>
-    </div>
+    <aside class="auth-side">
+      <div class="section-card">
+        <span class="eyebrow">Как это работает</span>
+        <ul class="timeline-list">
+          <li><strong>1. Создаётся веб-аккаунт</strong><span>Он используется для входа в личный кабинет SaulInfo.</span></li>
+          <li><strong>2. При желании добавляется Telegram ID</strong><span>Это связывает сайт с существующим пользователем основной системы.</span></li>
+          <li><strong>3. После входа открывается полный пользовательский контур</strong><span>Ключи, профиль и поддержка уже будут внутри кабинета.</span></li>
+        </ul>
+      </div>
+    </aside>
   </section>
 </main>
 {% endblock %}

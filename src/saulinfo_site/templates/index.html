@@ -1,109 +1,140 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}SaulInfo{% endblock %}
 {% block content %}
-<main class="hero">
-  <section class="hero-panel hero-copy">
-    <span class="eyebrow">Корпоративный портал SaulInfo</span>
-    <h1>Безопасный доступ к сервису в одном личном кабинете</h1>
+<main class="hero-grid">
+  <section class="hero-card spotlight-card">
+    <span class="eyebrow">SaulInfo portal</span>
+    <h1>Единый веб-кабинет для доступа, ключей и поддержки.</h1>
     <p>
-      Здесь собраны вход в кабинет, данные по доступам, поддержка и вся рабочая
-      информация, которая нужна пользователю без лишней технической сложности.
+      Пользовательский контур SaulInfo собран как спокойный рабочий портал: здесь
+      видны ключи, статусы, обращения и профиль без ощущения, что вы находитесь во
+      внутренней админке или техническом интерфейсе.
     </p>
     <p>
-      Мы перенесли пользовательский контур в веб, чтобы управлять услугами было
-      понятнее, стабильнее и удобнее с любого устройства.
+      Мы специально перестроили сайт так, чтобы он помогал работать с сервисом каждый
+      день: с любого устройства, без Telegram-зависимости в базовых действиях и без
+      лишней перегрузки на экране.
     </p>
     <div class="hero-actions">
-      <a href="{{ url_for('login_page') }}" class="button primary">Войти в кабинет</a>
+      <a href="{{ url_for('login_page') }}" class="button primary">Открыть кабинет</a>
       {% if allow_self_registration %}
       <a href="{{ url_for('register_page') }}" class="button ghost">Создать аккаунт</a>
       {% else %}
-      <span class="hero-inline-note">Доступ оформляется через администратора SaulInfo.</span>
+      <span class="field-note">Доступ оформляется через администратора SaulInfo.</span>
       {% endif %}
     </div>
-  </section>
-
-  <section class="hero-aside">
-    <div class="status-card">
-      <span class="eyebrow">Что внутри</span>
-      <h2>Личный кабинет без перегруза</h2>
-      <p>
-        Интерфейс собран так, чтобы человек видел только важное: доступы, историю,
-        обращения и ключевые действия без ощущения, что он попал во внутреннюю админку.
-      </p>
-      <div class="feature-list">
-        <div class="feature-item">
-          <strong>Понятная навигация</strong>
-          <span>Основные действия доступны сразу, без лишних экранов и обходных сценариев.</span>
-        </div>
-        <div class="feature-item">
-          <strong>Безопасный доступ</strong>
-          <span>Авторизация и пользовательские данные живут отдельно от административного контура.</span>
-        </div>
-        <div class="feature-item">
-          <strong>Поддержка под рукой</strong>
-          <span>Обращения, статусы и история остаются в одном месте и не теряются.</span>
-        </div>
+    <div class="trust-row">
+      <div class="trust-chip">
+        <strong>1</strong>
+        <span>единая точка входа в пользовательский контур</span>
+      </div>
+      <div class="trust-chip">
+        <strong>24/7</strong>
+        <span>доступ к профилю, ключам и истории обращений</span>
+      </div>
+      <div class="trust-chip">
+        <strong>Web</strong>
+        <span>понятный интерфейс без лишних административных слоёв</span>
       </div>
     </div>
   </section>
+
+  <aside class="hero-visual">
+    <div class="visual-panel">
+      <span class="eyebrow">Что внутри</span>
+      <div class="visual-stack">
+        <div class="glass-line">
+          <div>
+            <strong>Ключи доступа</strong>
+            <span>Все актуальные подключения и статусы в одном месте.</span>
+          </div>
+          <span class="status-pill success">Активно</span>
+        </div>
+        <div class="glass-line">
+          <div>
+            <strong>Поддержка</strong>
+            <span>Текущие обращения и история коммуникации без потерь.</span>
+          </div>
+          <span class="status-pill">Журнал</span>
+        </div>
+        <div class="glass-line">
+          <div>
+            <strong>Профиль</strong>
+            <span>Безопасное управление данными аккаунта и доступом.</span>
+          </div>
+          <span class="status-pill warning">Под защитой</span>
+        </div>
+      </div>
+    </div>
+    <div class="section-card">
+      <span class="eyebrow">Модель доступа</span>
+      <h2>Сайт уже подстроен под реальную логику SaulInfo.</h2>
+      <ul class="bullet-list">
+        <li>Аккаунт можно выдавать через административную панель без ручной путаницы.</li>
+        <li>Публичную регистрацию можно держать отключённой, если это нужно проекту.</li>
+        <li>Пользовательский сайт остаётся отделённым от панели и бота.</li>
+      </ul>
+    </div>
+  </aside>
 </main>
 
-<section class="portal-grid">
-  <article class="portal-section">
-    <span class="eyebrow">Надёжность</span>
-    <h2>Спокойный вход в рабочую среду</h2>
+<section class="feature-grid">
+  <article class="section-card feature-card">
+    <span class="eyebrow">Кабинет</span>
+    <h3>Всё важное на одном экране</h3>
     <p>
-      Личный кабинет построен как аккуратный пользовательский слой над действующей системой SaulInfo,
-      поэтому он подходит для реальной работы, а не только для демонстрации.
+      После входа пользователь сразу попадает в рабочее пространство с краткой
+      сводкой по аккаунту, ключам, расходам и текущим обращениям.
     </p>
-    <ul class="portal-list">
-      <li>единая точка входа для пользователей SaulInfo</li>
-      <li>веб-доступ без зависимости от Telegram для основных действий</li>
-      <li>предсказуемый интерфейс на десктопе и мобильных устройствах</li>
+    <ul class="feature-list">
+      <li>виден статус аккаунта и привязка к системе</li>
+      <li>есть быстрые переходы к ключам и поддержке</li>
+      <li>спокойный светлый интерфейс без перегруза</li>
     </ul>
   </article>
 
-  <article class="portal-section">
-    <span class="eyebrow">Управление</span>
-    <h2>Всё, что нужно для повседневной работы</h2>
+  <article class="section-card feature-card">
+    <span class="eyebrow">Ключи</span>
+    <h3>Доступы и история по ним без хаоса</h3>
     <p>
-      После входа пользователь получает кабинет, в котором можно видеть ключи, доступы,
-      историю обращений и привязанные данные, не переключаясь между разными контурами.
+      Страница ключей показывает рабочие подключения, сроки, площадки и заметки
+      так, чтобы это было понятно обычному пользователю, а не только администратору.
     </p>
-    <ul class="portal-list">
-      <li>данные профиля и статус привязки</li>
-      <li>список ключей и рабочая информация по ним</li>
-      <li>поддержка и история обращений</li>
+    <ul class="feature-list">
+      <li>актуальные даты и статусы</li>
+      <li>структурированный список без лишних действий</li>
+      <li>готово под дальнейшее расширение интерфейса</li>
     </ul>
   </article>
 
-  <article class="portal-section">
-    <span class="eyebrow">Доступ</span>
-    <h2>Подходит под реальную модель SaulInfo</h2>
+  <article class="section-card feature-card">
+    <span class="eyebrow">Поддержка</span>
+    <h3>История обращений всегда рядом</h3>
     <p>
-      Сайт уже учитывает ваш текущий сценарий: доступ может выдаваться администратором, а самостоятельная
-      регистрация при необходимости остаётся отключённой.
+      Пользователь видит свои тикеты и состояние поддержки прямо внутри сайта,
+      не переключаясь между несколькими контурами и чатами.
     </p>
-    <ul class="portal-list">
-      <li>регистрация может быть закрыта для публичного доступа</li>
-      <li>аккаунты можно выдавать из административной панели</li>
-      <li>кабинет остаётся отделённым от панели и бота</li>
+    <ul class="feature-list">
+      <li>понятный список запросов</li>
+      <li>быстрая точка входа для нового обращения</li>
+      <li>готово для следующего этапа веб-отправки тикетов</li>
     </ul>
   </article>
 </section>
 
-<section class="access-card portal-section">
-  <span class="eyebrow">Вход в систему</span>
-  <h2>Доступ уже выдан?</h2>
-  <p>
-    Войдите в личный кабинет, чтобы открыть свой рабочий контур. Если учётной записи ещё нет,
-    используйте регистрацию или запросите доступ у администратора SaulInfo.
-  </p>
-  <div class="hero-actions access-actions">
+<section class="section-card cta-strip">
+  <div class="cta-copy">
+    <span class="eyebrow">Готовность</span>
+    <h2>Если доступ уже выдан, можно сразу входить в кабинет.</h2>
+    <p class="muted">
+      Если учётной записи ещё нет, запросите её у администратора SaulInfo или
+      используйте регистрацию, если она открыта для вашего контура.
+    </p>
+  </div>
+  <div class="hero-actions">
     <a href="{{ url_for('login_page') }}" class="button primary">Перейти ко входу</a>
     {% if allow_self_registration %}
-    <a href="{{ url_for('register_page') }}" class="button ghost">Создать аккаунт</a>
+    <a href="{{ url_for('register_page') }}" class="button secondary">Создать аккаунт</a>
     {% endif %}
   </div>
 </section>

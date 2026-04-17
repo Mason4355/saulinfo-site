@@ -1,67 +1,72 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Поддержка{% endblock %}
+{% block portal_eyebrow %}<span class="eyebrow">Support</span>{% endblock %}
+{% block portal_heading %}<h1 class="page-title">Поддержка и обращения</h1>{% endblock %}
+{% block portal_subtitle %}<p class="page-subtitle">История тикетов и новая точка входа в поддержку в одном экране без лишних переходов.</p>{% endblock %}
 {% block content %}
-<main class="inner-page support-page">
-  <section class="page-head">
-    <div>
-      <span class="eyebrow">Поддержка</span>
-      <h1>Мои обращения</h1>
+<section class="support-grid">
+  <article class="page-card table-panel">
+    <div class="page-card-head">
+      <div>
+        <span class="eyebrow">История</span>
+        <h2>Ваши обращения</h2>
+      </div>
     </div>
-  </section>
-
-  <section class="content-grid-two support-layout">
-    <article class="page-card table-card">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">История</span>
-          <h2>Список тикетов</h2>
+    {% if tickets %}
+    <div class="support-history">
+      {% for ticket in tickets %}
+      <article class="ticket-card">
+        <div class="ticket-card-top">
+          <div>
+            <strong>#{{ ticket.get('ticket_id', '—') }}</strong>
+            <div class="muted">{{ ticket.get('subject') or 'Без темы' }}</div>
+          </div>
+          <span class="status-pill">{{ ticket.get('status', 'unknown') }}</span>
         </div>
-      </div>
-      {% if tickets %}
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Тема</th>
-              <th>Статус</th>
-              <th>Последнее обновление</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for ticket in tickets %}
-            <tr>
-              <td>
-                <strong>#{{ ticket.get('ticket_id', '—') }}</strong><br />
-                <span class="muted">{{ ticket.get('subject') or 'Без темы' }}</span>
-              </td>
-              <td><span class="status-pill">{{ ticket.get('status', 'unknown') }}</span></td>
-              <td>{{ ticket.get('updated_at') or '—' }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="empty-state">Обращений пока нет.</div>
-      {% endif %}
-    </article>
+        <div class="ticket-meta">
+          <span class="muted">Последнее обновление</span>
+          <span>{{ ticket.get('updated_at') or '—' }}</span>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">Обращений пока нет. Когда история появится, она сразу отобразится здесь.</div>
+    {% endif %}
+  </article>
 
-    <article class="page-card support-form-card">
-      <span class="eyebrow">Быстрое обращение</span>
-      <h2>Новая форма поддержки</h2>
-      <p>Макет уже перенесён на сайт. Отправка новых веб-обращений будет подключена следующим этапом, а текущая история уже доступна слева.</p>
-      <form method="post" class="auth-form">
-        <label class="form-label">
-          <span>Тема</span>
-          <input type="text" name="subject" placeholder="Кратко опишите вопрос" />
-        </label>
-        <label class="form-label">
-          <span>Сообщение</span>
-          <textarea name="message" rows="5" placeholder="Подробности обращения"></textarea>
-        </label>
-        <button type="submit" class="button primary wide">Отправить обращение</button>
-      </form>
-    </article>
-  </section>
-</main>
+  <aside class="support-summary">
+    <span class="eyebrow">Новая заявка</span>
+    <div class="sidebar-meta">
+      <strong>Форма уже встроена в сайт</strong>
+      <span>Веб-отправка новых обращений будет подключена следующим шагом.</span>
+    </div>
+    <ul class="bullet-list">
+      <li>Текущие тикеты уже отображаются из действующей системы.</li>
+      <li>Новый интерфейс готов под аккуратное подключение отправки сообщений.</li>
+      <li>Пользователь останется внутри одного веб-контура без лишних чатов.</li>
+    </ul>
+  </aside>
+</section>
+
+<section class="page-card profile-card">
+  <div class="page-card-head">
+    <div>
+      <span class="eyebrow">Новое обращение</span>
+      <h2>Форма поддержки</h2>
+    </div>
+  </div>
+  <form method="post" class="auth-form">
+    <label class="form-label">
+      <span>Тема</span>
+      <input type="text" name="subject" placeholder="Кратко опишите вопрос" />
+    </label>
+    <label class="form-label">
+      <span>Сообщение</span>
+      <textarea name="message" rows="6" placeholder="Подробности обращения"></textarea>
+    </label>
+    <button type="submit" class="button primary">Отправить обращение</button>
+    <span class="field-note">Пока форма показывает рабочий интерфейс. Отправка новых веб-тикетов будет подключена отдельным шагом.</span>
+  </form>
+</section>
 {% endblock %}

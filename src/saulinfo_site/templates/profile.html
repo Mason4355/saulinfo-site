@@ -1,60 +1,87 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Профиль{% endblock %}
+{% block portal_eyebrow %}<span class="eyebrow">Profile</span>{% endblock %}
+{% block portal_heading %}<h1 class="page-title">Профиль и безопасность</h1>{% endblock %}
+{% block portal_subtitle %}<p class="page-subtitle">Управляйте именем в кабинете, проверяйте привязку и обновляйте пароль в безопасном контуре.</p>{% endblock %}
 {% block content %}
-<main class="inner-page profile-page">
-  <section class="page-head">
-    <div>
-      <span class="eyebrow">Профиль</span>
-      <h1>Настройки профиля</h1>
-    </div>
-  </section>
-
-  <section class="content-grid-two profile-layout">
-    <article class="page-card">
-      <span class="eyebrow">Личная информация</span>
-      <h2>Основные данные</h2>
-      <form method="post" class="auth-form">
-        <input type="hidden" name="action" value="profile" />
-        <label class="form-label">
-          <span>E-mail</span>
-          <input type="email" value="{{ account.email if account else '' }}" disabled />
-        </label>
-        <label class="form-label">
-          <span>Имя в кабинете</span>
-          <input type="text" name="display_name" value="{{ account.get('display_name', '') if account else '' }}" placeholder="Ваше имя" />
-        </label>
-        <label class="form-label">
-          <span>Telegram ID</span>
-          <input type="text" value="{{ user.get('telegram_id') if user else 'Не привязан' }}" disabled />
-        </label>
-        <button type="submit" class="button primary wide">Сохранить изменения</button>
-      </form>
-    </article>
-
-    <article class="page-card">
-      <span class="eyebrow">Безопасность</span>
-      <h2>Смена пароля</h2>
-      <form method="post" class="auth-form">
-        <input type="hidden" name="action" value="password" />
-        <label class="form-label">
-          <span>Текущий пароль</span>
-          <input type="password" name="current_password" required />
-        </label>
-        <label class="form-label">
-          <span>Новый пароль</span>
-          <input type="password" name="new_password" required />
-        </label>
-        <label class="form-label">
-          <span>Подтвердите новый пароль</span>
-          <input type="password" name="confirm_password" required />
-        </label>
-        <button type="submit" class="button primary wide">Обновить пароль</button>
-      </form>
-      <div class="info-note">
-        <strong>2FA</strong>
-        <span>Дополнительная защита аккаунта будет добавлена следующим этапом.</span>
+<section class="profile-grid">
+  <article class="page-card profile-card">
+    <div class="page-card-head">
+      <div>
+        <span class="eyebrow">Основные данные</span>
+        <h2>Личный профиль</h2>
       </div>
-    </article>
-  </section>
-</main>
+    </div>
+    <form method="post" class="auth-form">
+      <input type="hidden" name="action" value="profile" />
+      <label class="form-label">
+        <span>E-mail</span>
+        <input type="email" value="{{ account.email if account else '' }}" disabled />
+      </label>
+      <label class="form-label">
+        <span>Имя в кабинете</span>
+        <input type="text" name="display_name" value="{{ account.get('display_name', '') if account else '' }}" placeholder="Как отображать вас в кабинете" />
+      </label>
+      <label class="form-label">
+        <span>Telegram ID</span>
+        <input type="text" value="{{ user.get('telegram_id') if user else 'Не привязан' }}" disabled />
+      </label>
+      <button type="submit" class="button primary wide">Сохранить данные</button>
+    </form>
+  </article>
+
+  <aside class="profile-summary">
+    <span class="eyebrow">Статус</span>
+    <div class="sidebar-meta">
+      <strong>{{ account_label or (current_user.get('username') if current_user else 'Аккаунт SaulInfo') }}</strong>
+      <span>{{ account.email if account else 'Без e-mail' }}</span>
+    </div>
+    <ul class="bullet-list">
+      <li>Профиль сайта связан с текущим веб-доступом.</li>
+      <li>Если Telegram не привязан, кабинет всё равно остаётся рабочим.</li>
+      <li>Дополнительные меры безопасности можно добавлять дальше без ломки интерфейса.</li>
+    </ul>
+  </aside>
+</section>
+
+<section class="section-grid-two">
+  <article class="page-card profile-card">
+    <div class="page-card-head">
+      <div>
+        <span class="eyebrow">Безопасность</span>
+        <h2>Смена пароля</h2>
+      </div>
+    </div>
+    <form method="post" class="auth-form">
+      <input type="hidden" name="action" value="password" />
+      <label class="form-label">
+        <span>Текущий пароль</span>
+        <input type="password" name="current_password" required />
+      </label>
+      <label class="form-label">
+        <span>Новый пароль</span>
+        <input type="password" name="new_password" required />
+      </label>
+      <label class="form-label">
+        <span>Повторите новый пароль</span>
+        <input type="password" name="confirm_password" required />
+      </label>
+      <button type="submit" class="button primary wide">Обновить пароль</button>
+    </form>
+  </article>
+
+  <article class="page-card table-panel">
+    <div class="page-card-head">
+      <div>
+        <span class="eyebrow">Следующий этап</span>
+        <h2>2FA и защита входа</h2>
+      </div>
+    </div>
+    <ul class="timeline-list">
+      <li><strong>Пароль уже управляется внутри кабинета</strong><span>Изменение проходит через локальное auth-хранилище сайта.</span></li>
+      <li><strong>Профиль изолирован от административной панели</strong><span>Пользователь работает только со своим контуром.</span></li>
+      <li><strong>Дополнительная 2FA может быть добавлена без переделки страницы</strong><span>Интерфейс уже подготовлен под это расширение.</span></li>
+    </ul>
+  </article>
+</section>
 {% endblock %}

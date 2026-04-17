@@ -1,105 +1,74 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Кабинет{% endblock %}
+{% block portal_eyebrow %}<span class="eyebrow">Dashboard</span>{% endblock %}
+{% block portal_heading %}<h1 class="page-title">Ваш кабинет SaulInfo</h1>{% endblock %}
+{% block portal_subtitle %}<p class="page-subtitle">Сводка по аккаунту, ключам, расходам и поддержке в одном понятном интерфейсе.</p>{% endblock %}
 {% block content %}
-<main class="dashboard-page">
-  <section class="dashboard-banner page-card">
-    <div>
-      <span class="eyebrow">Личный кабинет</span>
-      <h1>{{ account_label or (user.get('username') if user else 'SaulInfo') }}</h1>
-      <p>
-        Единая точка входа для ваших подключений, обращений и статуса аккаунта.
-        Всё важное собрано в одном спокойном интерфейсе без лишней технической перегрузки.
-      </p>
-      <div class="hero-actions compact-actions">
-        <a href="{{ url_for('keys_page') }}" class="button primary">Открыть ключи</a>
-        <a href="{{ url_for('support_page') }}" class="button ghost">Открыть поддержку</a>
+<section class="metric-grid">
+  <article class="metric-card">
+    <span class="metric-label">Баланс</span>
+    <strong class="metric-value">{{ '%.2f'|format((user.get('balance', 0) if user else 0) or 0) }} RUB</strong>
+    <span class="metric-note">Актуальный остаток по вашему аккаунту.</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Активные ключи</span>
+    <strong class="metric-value">{{ active_keys_count }}</strong>
+    <span class="metric-note">Подключений отображается в кабинете.</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Открытые обращения</span>
+    <strong class="metric-value">{{ open_tickets_count }}</strong>
+    <span class="metric-note">Тикетов сейчас в работе.</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Рефералы</span>
+    <strong class="metric-value">{{ referrals|length }}</strong>
+    <span class="metric-note">Связанных реферальных записей.</span>
+  </article>
+</section>
+
+<section class="section-grid-two">
+  <article class="page-card table-panel">
+    <div class="page-card-head">
+      <div>
+        <span class="eyebrow">Сводка по аккаунту</span>
+        <h2>Основные показатели</h2>
       </div>
+      <a href="{{ url_for('keys_page') }}" class="button subtle">Ключи</a>
     </div>
-    <div class="dashboard-banner-side">
-      <div class="hero-meta">
-        <strong>E-mail</strong>
-        <span class="muted">{{ account.email if account else '—' }}</span>
-      </div>
-      <div class="hero-meta">
-        <strong>Привязка к системе</strong>
-        <span class="muted">{% if user %}ID {{ user.get('telegram_id') }}{% else %}Пока не настроена{% endif %}</span>
-      </div>
+    <div class="summary-stack">
+      <div class="summary-row"><strong>E-mail</strong><span>{{ account.email if account else '—' }}</span></div>
+      <div class="summary-row"><strong>Telegram ID</strong><span>{% if user %}{{ user.get('telegram_id') }}{% else %}Не привязан{% endif %}</span></div>
+      <div class="summary-row"><strong>Потрачено</strong><span>{{ '%.2f'|format((user.get('total_spent', 0) if user else 0) or 0) }} RUB</span></div>
+      <div class="summary-row"><strong>Месяцев использования</strong><span>{{ (user.get('total_months', 0) if user else 0) or 0 }}</span></div>
+      <div class="summary-row"><strong>Площадок с тарифами</strong><span>{{ hosts|length }}</span></div>
     </div>
-  </section>
+  </article>
 
-  <section class="stats-grid-modern">
-    <article class="stat-card-modern">
-      <span class="stat-label">Баланс</span>
-      <strong class="stat-value">{{ '%.2f'|format((user.get('balance', 0) if user else 0) or 0) }} RUB</strong>
-      <span class="stat-note">Актуальный остаток по аккаунту</span>
-    </article>
-    <article class="stat-card-modern">
-      <span class="stat-label">Ключи</span>
-      <strong class="stat-value">{{ active_keys_count }}</strong>
-      <span class="stat-note">Активных подключений в кабинете</span>
-    </article>
-    <article class="stat-card-modern">
-      <span class="stat-label">Обращения</span>
-      <strong class="stat-value">{{ open_tickets_count }}</strong>
-      <span class="stat-note">Текущих открытых тикетов</span>
-    </article>
-    <article class="stat-card-modern">
-      <span class="stat-label">Рефералы</span>
-      <strong class="stat-value">{{ referrals|length }}</strong>
-      <span class="stat-note">Связанных реферальных записей</span>
-    </article>
-  </section>
-
-  <section class="content-grid-two">
-    <article class="page-card">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Статус</span>
-          <h2>Быстрая сводка</h2>
-        </div>
+  <article class="page-card table-panel">
+    <div class="page-card-head">
+      <div>
+        <span class="eyebrow">Последние обращения</span>
+        <h2>Поддержка</h2>
       </div>
-      <div class="summary-list">
-        <div class="summary-row">
-          <strong>Потрачено</strong>
-          <span>{{ '%.2f'|format((user.get('total_spent', 0) if user else 0) or 0) }} RUB</span>
-        </div>
-        <div class="summary-row">
-          <strong>Месяцев использования</strong>
-          <span>{{ (user.get('total_months', 0) if user else 0) or 0 }}</span>
-        </div>
-        <div class="summary-row">
-          <strong>Создано ключей</strong>
-          <span>{{ keys|length }}</span>
-        </div>
-        <div class="summary-row">
-          <strong>Тарифных площадок</strong>
-          <span>{{ hosts|length }}</span>
-        </div>
-      </div>
-    </article>
-
-    <article class="page-card">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Последние обращения</span>
-          <h2>Поддержка</h2>
-        </div>
-        <a href="{{ url_for('support_page') }}" class="button ghost small">Все обращения</a>
-      </div>
-      <div class="stack-list">
-        {% for ticket in tickets[:3] %}
-        <div class="ticket-item">
+      <a href="{{ url_for('support_page') }}" class="button subtle">Открыть поддержку</a>
+    </div>
+    <div class="ticket-list">
+      {% for ticket in tickets[:3] %}
+      <article class="ticket-card">
+        <div class="ticket-card-top">
           <div>
             <strong>#{{ ticket.get('ticket_id', '—') }}</strong>
             <div class="muted">{{ ticket.get('subject') or 'Без темы' }}</div>
           </div>
           <span class="status-pill">{{ ticket.get('status', 'unknown') }}</span>
         </div>
-        {% else %}
-        <div class="empty-state">Обращений пока нет.</div>
-        {% endfor %}
-      </div>
-    </article>
-  </section>
-</main>
+        <span class="muted">{{ ticket.get('updated_at') or 'Без обновлений' }}</span>
+      </article>
+      {% else %}
+      <div class="empty-state">Обращений пока нет. Когда история появится, она отобразится здесь.</div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
 {% endblock %}
