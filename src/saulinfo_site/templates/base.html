@@ -10,8 +10,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='site_v2.css') }}" />
   </head>
   <body>
+    {% set in_portal = current_account or current_user %}
     <div class="layout-root">
-      {% if current_account or current_user %}
+      {% if in_portal %}
       <div class="portal-layout">
         <aside class="portal-sidebar">
           <div class="sidebar-brand">
@@ -48,7 +49,7 @@
           </form>
         </aside>
 
-        <div class="portal-main">
+        <main class="portal-main">
           <header class="portal-topbar">
             <div>
               <span class="eyebrow">{{ page_eyebrow|default('SaulInfo workspace') }}</span>
@@ -72,7 +73,7 @@
           {% endwith %}
 
           {% block content %}{% endblock %}
-        </div>
+        </main>
       </div>
       {% else %}
       <div class="marketing-shell">
@@ -111,7 +112,7 @@
           {% endif %}
         {% endwith %}
 
-        {% block content %}{% endblock %}
+        {{ self.content() }}
 
         <footer class="marketing-footer">
           <div class="marketing-footer-inner">
