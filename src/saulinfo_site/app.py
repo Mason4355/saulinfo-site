@@ -135,7 +135,15 @@ def create_app() -> Flask:
             )
         except Exception:
             app.logger.exception("Forced site customer ensure failed for auth user %s", account.get("auth_user_id"))
-            forced_user = None
+            try:
+                forced_user = gateway.ensure_site_customer(
+                    int(account["auth_user_id"]),
+                    account.get("email", ""),
+                    account.get("display_name"),
+                )
+            except Exception:
+                app.logger.exception("Legacy forced site customer ensure failed for auth user %s", account.get("auth_user_id"))
+                forced_user = None
 
         if not forced_user:
             return account, user

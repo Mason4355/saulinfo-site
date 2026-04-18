@@ -47,8 +47,8 @@ class ShopUpdateGateway:
     def _site_username(self, auth_user_id: int, email: str, display_name: str | None) -> str:
         base = (display_name or "").strip() or (email or "").split("@", 1)[0]
         slug = re.sub(r"[^a-zA-Z0-9._-]+", "_", base).strip("._-")
-        slug = slug[:24] or f"site_{int(auth_user_id)}"
-        return f"site_{slug}"
+        slug = slug[:18] or "user"
+        return f"site_{int(auth_user_id)}_{slug}"
 
     def get_site_customer_id(self, auth_user_id: int) -> int:
         return self._site_shop_user_id(auth_user_id)
@@ -101,11 +101,23 @@ class ShopUpdateGateway:
             else:
                 columns = list(payload.keys())
                 placeholders = ", ".join("?" for _ in columns)
-                conn.execute(
-                    f"INSERT INTO users ({', '.join(columns)}) VALUES ({placeholders})",
-                    tuple(payload[column] for column in columns),
-                )
-                conn.commit()
+                try:
+                    conn.execute(
+                        f"INSERT INTO users ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(payload[column] for column in columns),
+                    )
+                    conn.commit()
+                except sqlite3.IntegrityError:
+                    fallback_username = f"site_{int(auth_user_id)}"
+                    if "username" in payload:
+                        payload["username"] = fallback_username
+                    columns = list(payload.keys())
+                    placeholders = ", ".join("?" for _ in columns)
+                    conn.execute(
+                        f"INSERT OR REPLACE INTO users ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(payload[column] for column in columns),
+                    )
+                    conn.commit()
 
             row = conn.execute(
                 "SELECT * FROM users WHERE telegram_id = ? LIMIT 1",
