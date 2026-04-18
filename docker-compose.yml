@@ -9,4 +9,4 @@ services:
       - .env
     volumes:
       - ./data:/data
-      - /root/shop-update/data:/integrations/shop-update:ro
+      - /root/shop-update/data:/integrations/shop-update
