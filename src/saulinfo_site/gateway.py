@@ -108,14 +108,17 @@ class ShopUpdateGateway:
                     )
                     conn.commit()
                 except sqlite3.IntegrityError:
-                    fallback_username = f"site_{int(auth_user_id)}"
-                    if "username" in payload:
-                        payload["username"] = fallback_username
-                    columns = list(payload.keys())
+                    fallback_payload = dict(payload)
+                    if "username" in fallback_payload:
+                        fallback_payload["username"] = f"site_{int(auth_user_id)}"
+                    # Some shop-update deployments may keep email unique in users.
+                    # Site-only support does not require duplicating email there.
+                    fallback_payload.pop("email", None)
+                    columns = list(fallback_payload.keys())
                     placeholders = ", ".join("?" for _ in columns)
                     conn.execute(
-                        f"INSERT OR REPLACE INTO users ({', '.join(columns)}) VALUES ({placeholders})",
-                        tuple(payload[column] for column in columns),
+                        f"INSERT INTO users ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(fallback_payload[column] for column in columns),
                     )
                     conn.commit()
 
