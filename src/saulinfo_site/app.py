@@ -804,6 +804,12 @@ def create_app() -> Flask:
     def dashboard_page():
         account, user = load_session_context()
         account, user = ensure_portal_customer(account, user)
+        payload = build_dashboard_payload(account, user)
+        closed_ticket_statuses = {"closed", "resolved", "done"}
+        has_open_ticket = any(
+            ((ticket.get("status") or "").strip().lower() not in closed_ticket_statuses)
+            for ticket in (payload.get("tickets") or [])
+        )
         return render_template("dashboard.html", **build_dashboard_payload(account, user))
 
     @app.route("/keys", methods=["GET", "POST"])
@@ -1096,6 +1102,9 @@ def create_app() -> Flask:
                 else:
                     flash("Не удалось отправить ответ в это обращение. Возможно, оно уже закрыто.", "warning")
             else:
+                if has_open_ticket:
+                    flash("РџРѕРєР° Сѓ РР°СЃ РµСЃС‚СЊ РѕС‚РєСЂС‹С‚РѕРµ РѕР±СЂР°С‰РµРЅРёРµ, РЅРѕРІРѕРµ СЃРѕР·РґР°С‚СЊ РЅРµР»СЊР·СЏ. РџСЂРѕРґРѕР»Р¶РёС‚Рµ С‚РµРєСѓС‰РёР№ РґРёР°Р»РѕРі РЅРёР¶Рµ.", "warning")
+                    return redirect(url_for("support_page"))
                 subject = request.form.get("subject", "")
                 ticket_id = safe_gateway_call(
                     "create_support_ticket",
@@ -1107,7 +1116,7 @@ def create_app() -> Flask:
                 else:
                     flash("Не удалось создать обращение. Попробуйте ещё раз.", "danger")
             return redirect(url_for("support_page"))
-        return render_template("support_site.html", **build_dashboard_payload(account, user))
+        return render_template("support_site.html", has_open_ticket=has_open_ticket, **payload)
 
     @app.route("/profile", methods=["GET", "POST"])
     @user_required
