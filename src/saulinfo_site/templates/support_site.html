@@ -38,6 +38,18 @@
           </div>
           {% endfor %}
         </div>
+        {% set ticket_status = (ticket.get('status') or '').strip().lower() %}
+        {% if ticket_status not in ['closed', 'resolved', 'done'] %}
+        <form method="post" class="auth-form ticket-reply-form">
+          <input type="hidden" name="action" value="reply" />
+          <input type="hidden" name="ticket_id" value="{{ ticket.get('ticket_id') }}" />
+          <label class="form-label">
+            <span>????? ? ?????????</span>
+            <textarea name="message" rows="3" placeholder="???????? ????? ??? ?????????"></textarea>
+          </label>
+          <button type="submit" class="button subtle">????????? ?????</button>
+        </form>
+        {% endif %}
         {% endif %}
       </article>
       {% endfor %}
@@ -69,6 +81,7 @@
     </div>
   </div>
   <form method="post" class="auth-form">
+    <input type="hidden" name="action" value="new" />
     <label class="form-label">
       <span>Тема</span>
       <input type="text" name="subject" placeholder="Кратко опишите вопрос" />

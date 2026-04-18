@@ -554,6 +554,34 @@ class ShopUpdateGateway:
             conn.commit()
             return int(ticket_id)
 
+    def add_support_reply(self, user_id: int, ticket_id: int, message: str) -> bool:
+        cleaned_message = (message or "").strip()
+        if not cleaned_message:
+            return False
+
+        with closing(self._connect()) as conn:
+            ticket = conn.execute(
+                "SELECT ticket_id, status FROM support_tickets WHERE ticket_id = ? AND user_id = ? LIMIT 1",
+                (int(ticket_id), int(user_id)),
+            ).fetchone()
+            if not ticket:
+                return False
+
+            status = str(ticket["status"] or "").strip().lower()
+            if status in {"closed", "resolved", "done"}:
+                return False
+
+            conn.execute(
+                "INSERT INTO support_messages (ticket_id, sender, content) VALUES (?, ?, ?)",
+                (int(ticket_id), "user", cleaned_message),
+            )
+            conn.execute(
+                "UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
+                (int(ticket_id),),
+            )
+            conn.commit()
+            return True
+
     def get_referrals(self, user_id: int) -> list[dict]:
         with closing(self._connect()) as conn:
             user_columns = self._get_columns(conn, "users")
