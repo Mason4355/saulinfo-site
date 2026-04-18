@@ -1075,6 +1075,12 @@ def create_app() -> Flask:
     def support_page():
         account, user = load_session_context()
         account, user = ensure_portal_customer(account, user)
+        payload = build_dashboard_payload(account, user)
+        closed_ticket_statuses = {"closed", "resolved", "done"}
+        has_open_ticket = any(
+            ((ticket.get("status") or "").strip().lower() not in closed_ticket_statuses)
+            for ticket in (payload.get("tickets") or [])
+        )
         if request.method == "POST":
             if not account or not user:
                 flash("Сайт не смог подготовить клиентский профиль для поддержки. Попробуйте выйти и войти заново.", "warning")
