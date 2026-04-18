@@ -227,6 +227,34 @@ def create_app() -> Flask:
 
         return normalized or [{"code": "balance", **defaults["balance"]}]
 
+    def parse_db_timestamp(value: object) -> datetime | None:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        normalized = raw.replace("T", " ")
+        try:
+            return datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+
+    def has_unread_support_messages(account: dict | None, ticket_threads: dict[int, list[dict]]) -> bool:
+        last_seen_raw = str((account or {}).get("support_last_seen_at") or "").strip()
+        last_seen_at = parse_db_timestamp(last_seen_raw)
+        for messages in ticket_threads.values():
+            for message in messages or []:
+                sender = str(message.get("sender") or "").strip().lower()
+                if sender == "user":
+                    continue
+                created_raw = str(message.get("created_at") or "").strip()
+                created_at = parse_db_timestamp(created_raw)
+                if not last_seen_raw:
+                    return True
+                if created_at and last_seen_at and created_at > last_seen_at:
+                    return True
+                if created_raw and last_seen_raw and created_raw > last_seen_raw:
+                    return True
+        return False
+
     def build_dashboard_payload(account: dict | None, user: dict | None) -> dict:
         user_id = int(user["telegram_id"]) if user else None
         keys = safe_gateway_call("user_keys", lambda: gateway.get_user_keys(user_id), []) if user_id is not None else []
@@ -249,6 +277,7 @@ def create_app() -> Flask:
             for ticket in tickets
             if str(ticket.get("status") or "").strip().lower() not in {"closed", "resolved", "done"}
         )
+        support_has_unread = has_unread_support_messages(account, ticket_threads)
 
         return {
             "account": account,
@@ -260,6 +289,7 @@ def create_app() -> Flask:
             "hosts": hosts,
             "active_keys_count": active_keys,
             "open_tickets_count": open_tickets,
+            "support_has_unread": support_has_unread,
         }
 
     def build_keys_context(account: dict | None, user: dict | None) -> dict:
@@ -1109,7 +1139,7 @@ def create_app() -> Flask:
                     flash("Не удалось отправить ответ в это обращение. Возможно, оно уже закрыто.", "warning")
             else:
                 if has_open_ticket:
-                    flash("РџРѕРєР° Сѓ РР°СЃ РµСЃС‚СЊ РѕС‚РєСЂС‹С‚РѕРµ РѕР±СЂР°С‰РµРЅРёРµ, РЅРѕРІРѕРµ СЃРѕР·РґР°С‚СЊ РЅРµР»СЊР·СЏ. РџСЂРѕРґРѕР»Р¶РёС‚Рµ С‚РµРєСѓС‰РёР№ РґРёР°Р»РѕРі РЅРёР¶Рµ.", "warning")
+                    flash("Пока у вас есть открытое обращение, новое создать нельзя. Продолжите текущий диалог ниже.", "warning")
                     return redirect(url_for("support_page"))
                 subject = request.form.get("subject", "")
                 ticket_id = safe_gateway_call(
@@ -1122,6 +1152,14 @@ def create_app() -> Flask:
                 else:
                     flash("Не удалось создать обращение. Попробуйте ещё раз.", "danger")
             return redirect(url_for("support_page"))
+        if account and payload.get("support_has_unread"):
+            try:
+                auth_store.mark_support_seen(int(account["auth_user_id"]))
+                account = auth_store.get_user(int(account["auth_user_id"])) or account
+                payload["account"] = account
+                payload["support_has_unread"] = False
+            except Exception:
+                app.logger.exception("Failed to mark support as seen for auth user %s", account.get("auth_user_id"))
         return render_template("support_site.html", has_open_ticket=has_open_ticket, **payload)
 
     @app.route("/profile", methods=["GET", "POST"])

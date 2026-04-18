@@ -35,7 +35,12 @@
           <nav class="sidebar-nav" aria-label="Навигация по кабинету">
             <a href="{{ url_for('dashboard_page') }}" class="sidebar-link{% if request.endpoint == 'dashboard_page' %} active{% endif %}">Кабинет</a>
             <a href="{{ url_for('keys_page') }}" class="sidebar-link{% if request.endpoint == 'keys_page' %} active{% endif %}">Ключи</a>
-            <a href="{{ url_for('support_page') }}" class="sidebar-link{% if request.endpoint == 'support_page' %} active{% endif %}">Поддержка</a>
+            <a href="{{ url_for('support_page') }}" class="sidebar-link{% if request.endpoint == 'support_page' %} active{% endif %}">
+              <span>Поддержка</span>
+              {% if support_has_unread %}
+              <span class="sidebar-indicator" aria-label="Есть новый ответ поддержки"></span>
+              {% endif %}
+            </a>
             <a href="{{ url_for('profile_page') }}" class="sidebar-link{% if request.endpoint == 'profile_page' %} active{% endif %}">Профиль</a>
           </nav>
 

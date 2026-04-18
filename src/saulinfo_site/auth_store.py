@@ -25,6 +25,7 @@ class AuthStore:
                     password_hash TEXT NOT NULL,
                     display_name TEXT,
                     linked_shop_user_id INTEGER,
+                    support_last_seen_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -36,6 +37,8 @@ class AuthStore:
             }
             if "display_name" not in columns:
                 conn.execute("ALTER TABLE auth_users ADD COLUMN display_name TEXT")
+            if "support_last_seen_at" not in columns:
+                conn.execute("ALTER TABLE auth_users ADD COLUMN support_last_seen_at TIMESTAMP")
             conn.commit()
 
     def create_user(self, email: str, password: str, linked_shop_user_id: int | None = None) -> tuple[bool, str]:
@@ -72,7 +75,7 @@ class AuthStore:
         with closing(self._connect()) as conn:
             row = conn.execute(
                 """
-                SELECT auth_user_id, email, display_name, password_hash, linked_shop_user_id, created_at, updated_at
+                SELECT auth_user_id, email, display_name, password_hash, linked_shop_user_id, support_last_seen_at, created_at, updated_at
                 FROM auth_users
                 WHERE email = ?
                 LIMIT 1
@@ -88,6 +91,7 @@ class AuthStore:
                 "email": row["email"],
                 "display_name": row["display_name"],
                 "linked_shop_user_id": row["linked_shop_user_id"],
+                "support_last_seen_at": row["support_last_seen_at"],
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
             }
@@ -96,7 +100,7 @@ class AuthStore:
         with closing(self._connect()) as conn:
             row = conn.execute(
                 """
-                SELECT auth_user_id, email, display_name, linked_shop_user_id, created_at, updated_at
+                SELECT auth_user_id, email, display_name, linked_shop_user_id, support_last_seen_at, created_at, updated_at
                 FROM auth_users
                 WHERE auth_user_id = ?
                 LIMIT 1
@@ -128,6 +132,18 @@ class AuthStore:
                 WHERE auth_user_id = ?
                 """,
                 (int(shop_user_id), int(auth_user_id)),
+            )
+            conn.commit()
+
+    def mark_support_seen(self, auth_user_id: int) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                """
+                UPDATE auth_users
+                SET support_last_seen_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE auth_user_id = ?
+                """,
+                (int(auth_user_id),),
             )
             conn.commit()
 
