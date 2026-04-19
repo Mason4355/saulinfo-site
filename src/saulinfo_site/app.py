@@ -814,6 +814,17 @@ def create_app() -> Flask:
         def wrapper(*args, **kwargs):
             if "auth_user_id" not in session:
                 return redirect(url_for("login_page"))
+            auth_user_id = session.get("auth_user_id")
+            if auth_user_id not in (None, -1):
+                current_account, current_user = load_session_context()
+                if not current_account:
+                    session.clear()
+                    flash("Доступ к сайту отозван. Войдите заново, если администратор выдаст новый доступ.", "warning")
+                    return redirect(url_for("login_page"))
+                if current_user and int(current_user.get("is_banned") or 0):
+                    session.clear()
+                    flash("Ваш доступ временно ограничен администратором.", "danger")
+                    return redirect(url_for("login_page"))
             return fn(*args, **kwargs)
 
         wrapper.__name__ = fn.__name__

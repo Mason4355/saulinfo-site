@@ -23,6 +23,22 @@ class ShopUpdateGateway:
 
     def get_user(self, user_id: int) -> dict | None:
         with closing(self._connect()) as conn:
+            columns = self._get_columns(conn, "users")
+            if "banned_until" in columns:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                conn.execute(
+                    """
+                    UPDATE users
+                    SET is_banned = 0,
+                        banned_until = NULL
+                    WHERE telegram_id = ?
+                      AND is_banned = 1
+                      AND banned_until IS NOT NULL
+                      AND banned_until <= ?
+                    """,
+                    (int(user_id), now),
+                )
+                conn.commit()
             row = conn.execute(
                 "SELECT * FROM users WHERE telegram_id = ? LIMIT 1",
                 (int(user_id),),
