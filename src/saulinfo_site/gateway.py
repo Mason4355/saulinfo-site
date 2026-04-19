@@ -344,6 +344,44 @@ class ShopUpdateGateway:
                 items.append(item)
             return items
 
+    def has_active_keys(self, user_id: int) -> bool:
+        keys = self.get_user_keys(int(user_id))
+        now = datetime.utcnow()
+        for key in keys:
+            expiry_raw = str(key.get("expiry_date") or "").strip()
+            if not expiry_raw:
+                return True
+            normalized = expiry_raw.replace("T", " ")
+            try:
+                expiry_date = datetime.fromisoformat(normalized)
+            except ValueError:
+                continue
+            if expiry_date >= now:
+                return True
+        return False
+
+    def purge_site_customer_records(self, auth_user_id: int) -> None:
+        site_user_id = self._site_shop_user_id(auth_user_id)
+        with closing(self._connect()) as conn:
+            ticket_rows = conn.execute(
+                "SELECT ticket_id FROM support_tickets WHERE user_id = ?",
+                (int(site_user_id),),
+            ).fetchall()
+            ticket_ids = [int(row[0]) for row in ticket_rows]
+            if ticket_ids:
+                placeholders = ", ".join("?" for _ in ticket_ids)
+                conn.execute(
+                    f"DELETE FROM support_messages WHERE ticket_id IN ({placeholders})",
+                    tuple(ticket_ids),
+                )
+                conn.execute(
+                    f"DELETE FROM support_tickets WHERE ticket_id IN ({placeholders})",
+                    tuple(ticket_ids),
+                )
+            conn.execute("DELETE FROM vpn_keys WHERE user_id = ?", (int(site_user_id),))
+            conn.execute("DELETE FROM users WHERE telegram_id = ?", (int(site_user_id),))
+            conn.commit()
+
     def get_balance(self, user_id: int) -> float:
         with closing(self._connect()) as conn:
             row = conn.execute(

@@ -6,7 +6,7 @@
     <article class="auth-card">
       <span class="eyebrow">Новый доступ</span>
       <h1>Создание аккаунта SaulInfo</h1>
-      <p>Заполните e-mail и пароль. При необходимости можно сразу привязать аккаунт к существующему пользователю по Telegram ID.</p>
+      <p>Зарегистрируйтесь по e-mail или через Google. После регистрации сайт сразу авторизует вас и откроет личный кабинет без обязательной привязки Telegram.</p>
       <form method="post" class="auth-form">
         <label class="form-label">
           <span>E-mail</span>
@@ -16,12 +16,12 @@
           <span>Пароль</span>
           <input type="password" name="password" placeholder="Минимум 6 символов" required />
         </label>
-        <label class="form-label">
-          <span>Telegram ID</span>
-          <input type="number" name="linked_shop_user_id" placeholder="Необязательно" />
-        </label>
         <button type="submit" class="button primary wide">Создать аккаунт</button>
       </form>
+      {% if google_auth_enabled %}
+      <div class="auth-divider"><span>или</span></div>
+      <a href="{{ url_for('google_login') }}" class="button ghost wide">Продолжить через Google</a>
+      {% endif %}
       <div class="field-note">Уже есть доступ? <a href="{{ url_for('login_page') }}" class="inline-link">Войти в кабинет</a></div>
     </article>
 
@@ -29,9 +29,9 @@
       <div class="section-card">
         <span class="eyebrow">Как это работает</span>
         <ul class="timeline-list">
-          <li><strong>1. Создаётся веб-аккаунт</strong><span>Он используется для входа в личный кабинет SaulInfo.</span></li>
-          <li><strong>2. При желании добавляется Telegram ID</strong><span>Это связывает сайт с существующим пользователем основной системы.</span></li>
-          <li><strong>3. После входа открывается полный пользовательский контур</strong><span>Ключи, профиль и поддержка уже будут внутри кабинета.</span></li>
+          <li><strong>1. Создаётся аккаунт сайта</strong><span>Он используется для входа в личный кабинет SaulInfo по почте или через Google.</span></li>
+          <li><strong>2. Сайт сам готовит клиентский профиль</strong><span>После первого входа кабинет подключает покупки ключей, продление и поддержку без обязательного Telegram.</span></li>
+          <li><strong>3. Неактивные пустые аккаунты не копятся бесконечно</strong><span>Если у пользователя нет активного ключа и он не заходит 90 дней, система очищает такой аккаунт автоматически.</span></li>
         </ul>
       </div>
     </aside>

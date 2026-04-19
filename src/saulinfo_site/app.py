@@ -2,7 +2,7 @@ import base64
 import hashlib
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 import requests
@@ -23,6 +23,7 @@ def create_app() -> Flask:
     gateway = ShopUpdateGateway()
     auth_store = AuthStore()
     auth_store.initialize()
+    cleanup_state = {"last_run": None}
 
     def safe_gateway_call(label: str, fn, fallback):
         try:
@@ -163,6 +164,65 @@ def create_app() -> Flask:
         scheme = forwarded_proto or request.scheme or "https"
         return f"{scheme}://{host}".rstrip("/")
 
+    def google_auth_enabled() -> bool:
+        return bool(Config.GOOGLE_CLIENT_ID and Config.GOOGLE_CLIENT_SECRET)
+
+    def google_redirect_uri() -> str:
+        return f"{public_base_url()}{url_for('google_callback')}"
+
+    def set_authenticated_session(account: dict) -> tuple[dict | None, dict | None]:
+        session["auth_user_id"] = int(account["auth_user_id"])
+        linked_shop_user_id = account.get("linked_shop_user_id")
+        if linked_shop_user_id is not None:
+            session["shop_user_id"] = int(linked_shop_user_id)
+        else:
+            session.pop("shop_user_id", None)
+
+        auth_store.mark_login(int(account["auth_user_id"]))
+        refreshed_account = auth_store.get_user(int(account["auth_user_id"])) or account
+        refreshed_account, user = ensure_customer_context(refreshed_account, None)
+        if user:
+            session["shop_user_id"] = int(user["telegram_id"])
+        return refreshed_account, user
+
+    def run_inactive_account_cleanup() -> None:
+        now = datetime.utcnow()
+        last_run = cleanup_state.get("last_run")
+        if last_run and now - last_run < timedelta(hours=max(int(Config.SITE_CLEANUP_INTERVAL_HOURS or 0), 1)):
+            return
+
+        cleanup_state["last_run"] = now
+        try:
+            candidates = auth_store.get_cleanup_candidates(Config.SITE_ACCOUNT_RETENTION_DAYS)
+        except Exception:
+            app.logger.exception("Failed to load stale site accounts for cleanup")
+            return
+
+        for account in candidates:
+            auth_user_id = int(account["auth_user_id"])
+            linked_shop_user_id = account.get("linked_shop_user_id")
+            site_user_id = None
+            if linked_shop_user_id is not None:
+                try:
+                    site_user_id = int(linked_shop_user_id)
+                except (TypeError, ValueError):
+                    site_user_id = None
+            if site_user_id is None or site_user_id > 0:
+                site_user_id = gateway.get_site_customer_id(auth_user_id)
+
+            try:
+                if gateway.has_active_keys(int(site_user_id)):
+                    continue
+            except Exception:
+                app.logger.exception("Failed to inspect keys for stale site account %s", auth_user_id)
+                continue
+
+            try:
+                gateway.purge_site_customer_records(auth_user_id)
+                auth_store.delete_user(auth_user_id)
+            except Exception:
+                app.logger.exception("Failed to purge stale site account %s", auth_user_id)
+
     def get_site_payment_methods() -> list[dict]:
         methods = safe_gateway_call("enabled_site_payment_methods", gateway.get_enabled_site_payment_methods, [])
         defaults = {
@@ -254,6 +314,10 @@ def create_app() -> Flask:
                 if created_raw and last_seen_raw and created_raw > last_seen_raw:
                     return True
         return False
+
+    @app.before_request
+    def run_periodic_maintenance():
+        run_inactive_account_cleanup()
 
     def build_dashboard_payload(account: dict | None, user: dict | None) -> dict:
         user_id = int(user["telegram_id"]) if user else None
@@ -742,6 +806,7 @@ def create_app() -> Flask:
             "current_account": current_account,
             "account_label": account_label,
             "allow_self_registration": Config.ALLOW_SELF_REGISTRATION,
+            "google_auth_enabled": google_auth_enabled(),
             "now": datetime.utcnow(),
         }
 
@@ -773,20 +838,102 @@ def create_app() -> Flask:
             if not account:
                 flash("Неверный e-mail или пароль.", "danger")
                 return render_template("login.html")
-
-            session["auth_user_id"] = int(account["auth_user_id"])
-            linked_shop_user_id = account.get("linked_shop_user_id")
-            if linked_shop_user_id is not None:
-                session["shop_user_id"] = int(linked_shop_user_id)
-            else:
-                session.pop("shop_user_id", None)
-
-            account, user = ensure_customer_context(account, None)
-            if user:
-                session["shop_user_id"] = int(user["telegram_id"])
+            set_authenticated_session(account)
             return redirect(url_for("dashboard_page"))
 
         return render_template("login.html")
+
+    @app.get("/login/google")
+    def google_login():
+        if not google_auth_enabled():
+            flash("Вход через Google пока не настроен.", "warning")
+            return redirect(url_for("login_page"))
+        if not Config.ALLOW_SELF_REGISTRATION:
+            flash("Самостоятельная регистрация отключена. Доступ к сайту выдаёт администратор.", "warning")
+            return redirect(url_for("login_page"))
+
+        state = uuid.uuid4().hex
+        session["google_oauth_state"] = state
+        params = {
+            "client_id": Config.GOOGLE_CLIENT_ID,
+            "redirect_uri": google_redirect_uri(),
+            "response_type": "code",
+            "scope": Config.GOOGLE_OAUTH_SCOPE,
+            "access_type": "online",
+            "prompt": "select_account",
+            "state": state,
+        }
+        return redirect(f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}")
+
+    @app.get("/login/google/callback")
+    def google_callback():
+        if not google_auth_enabled():
+            flash("Вход через Google пока не настроен.", "warning")
+            return redirect(url_for("login_page"))
+
+        state = (request.args.get("state") or "").strip()
+        code = (request.args.get("code") or "").strip()
+        expected_state = str(session.pop("google_oauth_state", "") or "")
+        if not state or state != expected_state:
+            flash("Не удалось подтвердить вход через Google. Попробуйте ещё раз.", "warning")
+            return redirect(url_for("login_page"))
+        if not code:
+            flash("Google не передал код авторизации. Попробуйте ещё раз.", "warning")
+            return redirect(url_for("login_page"))
+
+        try:
+            token_response = requests.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": code,
+                    "client_id": Config.GOOGLE_CLIENT_ID,
+                    "client_secret": Config.GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": google_redirect_uri(),
+                    "grant_type": "authorization_code",
+                },
+                timeout=20,
+            )
+            token_response.raise_for_status()
+            token_payload = token_response.json()
+            access_token = str(token_payload.get("access_token") or "").strip()
+            if not access_token:
+                raise ValueError("Missing Google access token")
+
+            userinfo_response = requests.get(
+                "https://openidconnect.googleapis.com/v1/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=20,
+            )
+            userinfo_response.raise_for_status()
+            profile = userinfo_response.json()
+        except Exception:
+            app.logger.exception("Google OAuth flow failed")
+            flash("Не удалось завершить вход через Google. Попробуйте ещё раз.", "danger")
+            return redirect(url_for("login_page"))
+
+        google_sub = str(profile.get("sub") or "").strip()
+        email = str(profile.get("email") or "").strip().lower()
+        display_name = str(profile.get("name") or "").strip()
+        email_verified = bool(profile.get("email_verified"))
+
+        if not google_sub or not email or not email_verified:
+            flash("Google не передал подтверждённый e-mail. Используйте обычную регистрацию.", "warning")
+            return redirect(url_for("login_page"))
+
+        if not Config.ALLOW_SELF_REGISTRATION:
+            existing_account = auth_store.get_user_by_email(email)
+            if not existing_account:
+                flash("Самостоятельная регистрация отключена. Доступ к сайту выдаёт администратор.", "warning")
+                return redirect(url_for("login_page"))
+
+        account = auth_store.create_or_update_google_user(email, google_sub, display_name)
+        if not account:
+            flash("Не удалось подготовить аккаунт для входа через Google.", "danger")
+            return redirect(url_for("login_page"))
+
+        set_authenticated_session(account)
+        flash("Вход через Google выполнен.", "success")
+        return redirect(url_for("dashboard_page"))
 
     @app.route("/register", methods=["GET", "POST"])
     def register_page():
@@ -797,24 +944,13 @@ def create_app() -> Flask:
         if request.method == "POST":
             email = request.form.get("email", "")
             password = request.form.get("password", "")
-            linked_raw = (request.form.get("linked_shop_user_id") or "").strip()
-            linked_shop_user_id = None
-
-            if linked_raw:
-                try:
-                    linked_shop_user_id = int(linked_raw)
-                except ValueError:
-                    flash("ID пользователя должен быть числом.", "warning")
-                    return render_template("register.html")
-
-                if not gateway.user_exists(linked_shop_user_id):
-                    flash("Пользователь с таким ID в shop-update не найден.", "warning")
-                    return render_template("register.html")
-
-            ok, message = auth_store.create_user(email, password, linked_shop_user_id)
+            ok, message = auth_store.create_user(email, password)
             flash(message, "success" if ok else "warning")
             if ok:
-                return redirect(url_for("login_page"))
+                account = auth_store.get_user_by_email(email)
+                if account:
+                    set_authenticated_session(account)
+                    return redirect(url_for("dashboard_page"))
 
         return render_template("register.html")
 
