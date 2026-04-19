@@ -76,7 +76,7 @@ done
 
 if [ "${DOCKER_CLEANUP}" = "1" ]; then
   log "Pruning Docker builder cache"
-  docker builder prune -f >/dev/null 2>&1 || true
+  docker builder prune -af >/dev/null 2>&1 || true
 
   log "Pruning dangling Docker images"
   docker image prune -f >/dev/null 2>&1 || true
