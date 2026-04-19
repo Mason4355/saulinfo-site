@@ -551,7 +551,7 @@ def create_app() -> Flask:
         merchant_id = (gateway.get_setting("heleket_merchant_id") or "").strip()
         api_key = (gateway.get_setting("heleket_api_key") or "").strip()
         if not merchant_id or not api_key:
-            raise RuntimeError("Heleket ?? ???????? ? ??????.")
+            raise RuntimeError("Heleket не настроен в панели.")
 
         callback_base = (gateway.get_setting("domain") or "").strip() or Config.SHOP_UPDATE_PANEL_URL
         callback_url = f"{callback_base.rstrip('/')}/heleket-webhook"
@@ -592,7 +592,7 @@ def create_app() -> Flask:
         payload = response.json()
         pay_url = payload.get("payment_url") or payload.get("pay_url") or payload.get("url")
         if not pay_url:
-            raise RuntimeError("Heleket ?? ?????? ?????? ?? ??????.")
+            raise RuntimeError("Heleket не вернул ссылку на оплату.")
         return {"payment_url": str(pay_url), "provider": "Heleket", "payment_method": "Crypto"}
 
     def create_yookassa_payment(payment_id: str, amount_rub: float, description: str, return_url: str) -> dict:
