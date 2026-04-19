@@ -93,10 +93,6 @@
 
           <nav class="marketing-nav" aria-label="Основная навигация">
             <a href="{{ url_for('index') }}" class="nav-pill{% if request.endpoint == 'index' %} active{% endif %}">Главная</a>
-            <a href="{{ url_for('login_page') }}" class="nav-pill{% if request.endpoint == 'login_page' %} active{% endif %}">Вход</a>
-            {% if allow_self_registration %}
-            <a href="{{ url_for('register_page') }}" class="nav-pill{% if request.endpoint == 'register_page' %} active{% endif %}">Регистрация</a>
-            {% endif %}
           </nav>
 
           <div class="header-actions">
