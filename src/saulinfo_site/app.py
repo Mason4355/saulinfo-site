@@ -3,11 +3,12 @@ import hashlib
 import json
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlencode
 
 import requests
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
 
 from saulinfo_site.auth_store import AuthStore
 from saulinfo_site.config import Config
@@ -315,6 +316,48 @@ def create_app() -> Flask:
                     return True
         return False
 
+    def deserialize_support_media(raw_media: object) -> list[dict]:
+        if not raw_media:
+            return []
+        try:
+            payload = json.loads(raw_media) if isinstance(raw_media, str) else raw_media
+        except (TypeError, json.JSONDecodeError):
+            return []
+        if isinstance(payload, dict):
+            payload = [payload]
+        if not isinstance(payload, list):
+            return []
+        items = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            filename = Path(str(item.get("filename") or "")).name
+            if not filename:
+                continue
+            items.append(
+                {
+                    "filename": filename,
+                    "original_name": str(item.get("original_name") or filename),
+                    "mime_type": str(item.get("mime_type") or "").strip(),
+                    "size": int(item.get("size") or 0),
+                }
+            )
+        return items
+
+    def normalize_support_messages(ticket_id: int, messages: list[dict]) -> list[dict]:
+        normalized = []
+        for message in messages or []:
+            current = dict(message)
+            current["media_items"] = [
+                {
+                    **media,
+                    "url": url_for("support_media_file", ticket_id=int(ticket_id), filename=media["filename"]),
+                }
+                for media in deserialize_support_media(current.get("media"))
+            ]
+            normalized.append(current)
+        return normalized
+
     @app.before_request
     def run_periodic_maintenance():
         run_inactive_account_cleanup()
@@ -326,10 +369,13 @@ def create_app() -> Flask:
         referrals = safe_gateway_call("referrals", lambda: gateway.get_referrals(user_id), []) if user_id is not None else []
         hosts = safe_gateway_call("hosts_with_plans", gateway.get_hosts_with_plans, [])
         ticket_threads = {
-            int(ticket.get("ticket_id")): safe_gateway_call(
+            int(ticket.get("ticket_id")): normalize_support_messages(
+                int(ticket.get("ticket_id")),
+                safe_gateway_call(
                 f"ticket_messages_{ticket.get('ticket_id')}",
                 lambda ticket_id=int(ticket.get("ticket_id")): gateway.get_ticket_messages(ticket_id),
                 [],
+                ),
             )
             for ticket in tickets
             if ticket.get("ticket_id") is not None
@@ -1247,6 +1293,29 @@ def create_app() -> Flask:
         flash(message, category)
         return redirect(url_for("keys_page"))
 
+    @app.route("/support/media/<int:ticket_id>/<path:filename>")
+    @user_required
+    def support_media_file(ticket_id: int, filename: str):
+        account, user = load_session_context()
+        if not user:
+            abort(404)
+        ticket = next(
+            (
+                item
+                for item in safe_gateway_call("user_tickets_media", lambda: gateway.get_user_tickets(int(user["telegram_id"])), [])
+                if int(item.get("ticket_id") or 0) == int(ticket_id)
+            ),
+            None,
+        )
+        if not ticket:
+            abort(404)
+        safe_name = Path(filename).name
+        ticket_dir = (gateway.support_media_dir / f"ticket_{int(ticket_id)}").resolve()
+        target = (ticket_dir / safe_name).resolve()
+        if not str(target).startswith(str(ticket_dir)) or not target.exists():
+            abort(404)
+        return send_file(target)
+
     @app.route("/support", methods=["GET", "POST"])
     @user_required
     def support_page():
@@ -1264,7 +1333,17 @@ def create_app() -> Flask:
                 return redirect(url_for("support_page"))
 
             message = request.form.get("message", "")
-            if not (message or "").strip():
+            uploaded_files = [
+                storage
+                for storage in request.files.getlist("photos")
+                if storage and str(storage.filename or "").strip()
+            ]
+            uploaded_files = [
+                storage
+                for storage in uploaded_files
+                if Path(str(storage.filename or "")).suffix.lower() in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+            ]
+            if not (message or "").strip() and not uploaded_files:
                 flash("Опишите обращение, чтобы поддержка получила текст заявки.", "warning")
                 return redirect(url_for("support_page"))
 
@@ -1277,7 +1356,12 @@ def create_app() -> Flask:
 
                 ok = safe_gateway_call(
                     "add_support_reply",
-                    lambda: gateway.add_support_reply(int(user["telegram_id"]), int(ticket_raw), message),
+                    lambda: gateway.add_support_reply(
+                        int(user["telegram_id"]),
+                        int(ticket_raw),
+                        message,
+                        gateway.save_support_media(int(ticket_raw), uploaded_files),
+                    ),
                     False,
                 )
                 if ok:
@@ -1291,10 +1375,22 @@ def create_app() -> Flask:
                 subject = request.form.get("subject", "")
                 ticket_id = safe_gateway_call(
                     "create_support_ticket",
-                    lambda: gateway.create_support_ticket(int(user["telegram_id"]), subject, message),
+                    lambda: gateway.create_support_ticket(
+                        int(user["telegram_id"]),
+                        subject,
+                        message if (message or "").strip() else "Пользователь отправил фото.",
+                    ),
                     None,
                 )
                 if ticket_id:
+                    if uploaded_files:
+                        media_records = gateway.save_support_media(int(ticket_id), uploaded_files)
+                        if media_records:
+                            safe_gateway_call(
+                                "attach_support_media",
+                                lambda: gateway.add_support_reply(int(user["telegram_id"]), int(ticket_id), "", media_records),
+                                False,
+                            )
                     flash(f"Обращение #{ticket_id} отправлено в поддержку.", "success")
                 else:
                     flash("Не удалось создать обращение. Попробуйте ещё раз.", "danger")

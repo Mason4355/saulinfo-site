@@ -3,6 +3,8 @@ from contextlib import closing
 from datetime import datetime
 import json
 import re
+from pathlib import Path
+import uuid
 from urllib.parse import urlparse
 
 from saulinfo_site.config import Config
@@ -11,6 +13,7 @@ from saulinfo_site.config import Config
 class ShopUpdateGateway:
     def __init__(self, db_path: str | None = None):
         self.db_path = db_path or Config.SHOP_UPDATE_DB_PATH
+        self.support_media_dir = Path(self.db_path).resolve().parent / "support_media"
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path)
@@ -584,10 +587,36 @@ class ShopUpdateGateway:
             ).fetchall()
             return [dict(row) for row in rows]
 
-    def create_support_ticket(self, user_id: int, subject: str | None, message: str) -> int | None:
+    def save_support_media(self, ticket_id: int, files: list[object]) -> list[dict]:
+        self.support_media_dir.mkdir(parents=True, exist_ok=True)
+        ticket_dir = self.support_media_dir / f"ticket_{int(ticket_id)}"
+        ticket_dir.mkdir(parents=True, exist_ok=True)
+
+        records: list[dict] = []
+        for storage in files or []:
+            if not storage:
+                continue
+            original_name = Path(str(getattr(storage, "filename", "") or "")).name
+            suffix = Path(original_name).suffix.lower()
+            if suffix not in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}:
+                continue
+            stored_name = f"{uuid.uuid4().hex}{suffix}"
+            target = ticket_dir / stored_name
+            storage.save(target)
+            records.append(
+                {
+                    "filename": stored_name,
+                    "original_name": original_name or stored_name,
+                    "mime_type": str(getattr(storage, "mimetype", "") or "").strip() or "application/octet-stream",
+                    "size": int(target.stat().st_size) if target.exists() else 0,
+                }
+            )
+        return records
+
+    def create_support_ticket(self, user_id: int, subject: str | None, message: str, media: list[dict] | None = None) -> int | None:
         cleaned_message = (message or "").strip()
         cleaned_subject = (subject or "").strip() or "Обращение с сайта SaulInfo"
-        if not cleaned_message:
+        if not cleaned_message and not media:
             return None
 
         with closing(self._connect()) as conn:
@@ -598,8 +627,8 @@ class ShopUpdateGateway:
             )
             ticket_id = cursor.lastrowid
             cursor.execute(
-                "INSERT INTO support_messages (ticket_id, sender, content) VALUES (?, ?, ?)",
-                (int(ticket_id), "user", cleaned_message),
+                "INSERT INTO support_messages (ticket_id, sender, content, media) VALUES (?, ?, ?, ?)",
+                (int(ticket_id), "user", cleaned_message, json.dumps(media, ensure_ascii=False) if media else None),
             )
             cursor.execute(
                 "UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
@@ -608,9 +637,9 @@ class ShopUpdateGateway:
             conn.commit()
             return int(ticket_id)
 
-    def add_support_reply(self, user_id: int, ticket_id: int, message: str) -> bool:
+    def add_support_reply(self, user_id: int, ticket_id: int, message: str, media: list[dict] | None = None) -> bool:
         cleaned_message = (message or "").strip()
-        if not cleaned_message:
+        if not cleaned_message and not media:
             return False
 
         with closing(self._connect()) as conn:
@@ -626,8 +655,8 @@ class ShopUpdateGateway:
                 return False
 
             conn.execute(
-                "INSERT INTO support_messages (ticket_id, sender, content) VALUES (?, ?, ?)",
-                (int(ticket_id), "user", cleaned_message),
+                "INSERT INTO support_messages (ticket_id, sender, content, media) VALUES (?, ?, ?, ?)",
+                (int(ticket_id), "user", cleaned_message, json.dumps(media, ensure_ascii=False) if media else None),
             )
             conn.execute(
                 "UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",

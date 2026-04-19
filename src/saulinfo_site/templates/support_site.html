@@ -34,6 +34,15 @@
           <div class="message-bubble{% if (message.get('sender') or '').strip().lower() != 'user' %} staff{% endif %}">
             <strong>{{ 'Вы' if (message.get('sender') or '').strip().lower() == 'user' else 'Поддержка' }}</strong>
             <p>{{ message.get('content') }}</p>
+            {% if message.get('media_items') %}
+            <div class="support-media-grid">
+              {% for media in message.get('media_items') %}
+              <a class="support-media-item" href="{{ media.url }}" target="_blank" rel="noopener">
+                <img src="{{ media.url }}" alt="{{ media.original_name }}">
+              </a>
+              {% endfor %}
+            </div>
+            {% endif %}
             <span>{{ message.get('created_at') or '—' }}</span>
           </div>
           {% endfor %}
@@ -41,9 +50,13 @@
         {% endif %}
         {% set ticket_status = (ticket.get('status') or '').strip().lower() %}
         {% if ticket_status not in ['closed', 'resolved', 'done'] %}
-        <form method="post" class="auth-form ticket-reply-form">
+        <form method="post" class="auth-form ticket-reply-form" enctype="multipart/form-data">
           <input type="hidden" name="action" value="reply" />
           <input type="hidden" name="ticket_id" value="{{ ticket.get('ticket_id') }}" />
+          <label class="form-label">
+            <span>Фото</span>
+            <input type="file" name="photos" accept="image/*" multiple>
+          </label>
           <label class="form-label">
             <span>Ответ в обращение</span>
             <textarea name="message" rows="3" placeholder="Напишите ответ для поддержки"></textarea>
@@ -93,8 +106,12 @@
       <h2>Написать в поддержку</h2>
     </div>
   </div>
-  <form method="post" class="auth-form">
+  <form method="post" class="auth-form" enctype="multipart/form-data">
     <input type="hidden" name="action" value="new" />
+    <label class="form-label">
+      <span>Фото</span>
+      <input type="file" name="photos" accept="image/*" multiple>
+    </label>
     <label class="form-label">
       <span>Тема</span>
       <input type="text" name="subject" placeholder="Кратко опишите вопрос" />
