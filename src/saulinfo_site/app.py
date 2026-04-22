@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 import json
 import uuid
 from datetime import datetime, timedelta
@@ -257,6 +258,11 @@ def create_app() -> Flask:
                 "provider": "TON",
                 "note": "Оплата через TON Connect с подтверждением в общей панели SaulInfo.",
             },
+            "paritypay": {
+                "label": "Банковская карта / QR",
+                "provider": "ParityPay",
+                "note": "Оплата через ParityPay с подтверждением в общей панели SaulInfo.",
+            },
         }
         normalized: list[dict] = []
         seen_codes: set[str] = set()
@@ -278,6 +284,11 @@ def create_app() -> Flask:
         fallback_sources = {
             "heleket": (gateway.get_setting("heleket_merchant_id"), gateway.get_setting("heleket_api_key")),
             "cryptobot": (gateway.get_setting("cryptobot_token"),),
+            "paritypay": (
+                gateway.get_setting("paritypay_shop_id"),
+                gateway.get_setting("paritypay_api_secret_key"),
+                gateway.get_setting("paritypay_callback_secret_key"),
+            ),
             "tonconnect": (gateway.get_setting("ton_wallet_address"), gateway.get_setting("tonapi_key")),
         }
         for code, values in fallback_sources.items():
@@ -594,6 +605,86 @@ def create_app() -> Flask:
         if not pay_url:
             raise RuntimeError("Heleket не вернул ссылку на оплату.")
         return {"payment_url": str(pay_url), "provider": "Heleket", "payment_method": "Crypto"}
+
+    def _paritypay_signature_value(value: object) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, (dict, list, tuple)):
+            return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        return str(value)
+
+    def _build_paritypay_signature(payload: dict, secret: str) -> str:
+        raw = "".join(
+            _paritypay_signature_value(payload.get(key))
+            for key in sorted((payload or {}).keys())
+        )
+        return hmac.new(secret.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    def create_paritypay_payment(metadata: dict) -> dict:
+        shop_id = (gateway.get_setting("paritypay_shop_id") or "").strip()
+        api_secret = (gateway.get_setting("paritypay_api_secret_key") or "").strip()
+        callback_secret = (gateway.get_setting("paritypay_callback_secret_key") or "").strip()
+        if not shop_id or not api_secret or not callback_secret:
+            raise RuntimeError("ParityPay не настроен в панели.")
+
+        payment_id = str(metadata["payment_id"])
+        panel_base = (gateway.get_setting("domain") or "").strip() or Config.SHOP_UPDATE_PANEL_URL
+        callback_url = f"{panel_base.rstrip('/')}/paritypay-webhook"
+        success_url = f"{public_base_url()}{url_for('keys_payment_paritypay_return', payment_id=payment_id, result='success')}"
+        fail_url = f"{public_base_url()}{url_for('keys_payment_paritypay_return', payment_id=payment_id, result='fail')}"
+
+        custom_fields = {
+            "payment_id": payment_id,
+            "user_id": int(metadata["user_id"]),
+            "months": int(metadata["months"]),
+            "price": float(metadata["price"]),
+            "action": str(metadata["action"]),
+            "key_id": metadata.get("key_id"),
+            "host_name": str(metadata["host_name"]),
+            "plan_id": int(metadata["plan_id"]),
+            "customer_email": str(metadata.get("customer_email") or ""),
+            "site_auth_user_id": int(metadata["site_auth_user_id"]),
+            "payment_method": "ParityPay",
+        }
+        payload = {
+            "shop_id": shop_id,
+            "amount": round(float(metadata["price"]), 2),
+            "order_id": payment_id,
+            "success_url": success_url,
+            "fail_url": fail_url,
+            "callback_url": callback_url,
+            "custom_fields": custom_fields,
+            "comment": (
+                "SaulInfo: покупка ключа"
+                if str(metadata.get("action") or "").strip().lower() == "purchase"
+                else "SaulInfo: продление ключа"
+            ),
+        }
+        signature = _build_paritypay_signature(payload, api_secret)
+        response = requests.post(
+            "https://api.paritypay.ru/invoice/create",
+            json=payload,
+            headers={"Content-Type": "application/json", "X-SIGNATURE": signature},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload_json = response.json()
+        pay_url = (
+            payload_json.get("link")
+            or payload_json.get("payment_url")
+            or payload_json.get("pay_url")
+            or payload_json.get("url")
+        )
+        if not pay_url:
+            raise RuntimeError("ParityPay не вернул ссылку на оплату.")
+        return {
+            "payment_url": str(pay_url),
+            "provider": "ParityPay",
+            "payment_method": "ParityPay",
+            "provider_invoice_id": str(payload_json.get("id") or payload_json.get("invoice_id") or "").strip(),
+        }
 
     def create_yookassa_payment(payment_id: str, amount_rub: float, description: str, return_url: str) -> dict:
         shop_id = (gateway.get_setting("yookassa_shop_id") or "").strip()
@@ -1186,6 +1277,23 @@ def create_app() -> Flask:
                     flash("Не удалось создать ссылку на оплату через Heleket.", "danger")
                     return redirect(url_for("keys_page"))
 
+            if payment_method == "paritypay":
+                try:
+                    order_metadata["user_id"] = int(user["telegram_id"])
+                    payment = create_paritypay_payment(order_metadata)
+                    order_metadata["payment_method"] = "paritypay"
+                    order_metadata["provider"] = payment.get("provider") or "ParityPay"
+                    order_metadata["payment_url"] = payment["payment_url"]
+                    if payment.get("provider_invoice_id"):
+                        order_metadata["provider_invoice_id"] = payment["provider_invoice_id"]
+                    gateway.create_pending_transaction(payment_id, int(user["telegram_id"]), price, order_metadata)
+                    gateway.update_transaction_metadata(payment_id, order_metadata)
+                    return redirect(url_for("keys_payment_pending_page", payment_id=payment_id))
+                except Exception:
+                    app.logger.exception("Failed to create ParityPay invoice for site order")
+                    flash("Не удалось создать ссылку на оплату через ParityPay.", "danger")
+                    return redirect(url_for("keys_page"))
+
             if payment_method in {"ton", "tonconnect"}:
                 try:
                     order_metadata["payment_method"] = "tonconnect"
@@ -1292,6 +1400,16 @@ def create_app() -> Flask:
         )
         flash(message, category)
         return redirect(url_for("keys_page"))
+
+    @app.route("/keys/payment/paritypay/return/<payment_id>")
+    @user_required
+    def keys_payment_paritypay_return(payment_id: str):
+        result = (request.args.get("result") or "").strip().lower()
+        if result == "fail":
+            flash("Оплата через ParityPay не завершена. Если деньги уже списались, проверьте статус чуть позже.", "warning")
+            return redirect(url_for("keys_page"))
+        flash("Платёж принят. После подтверждения ParityPay доступ появится в кабинете автоматически.", "success")
+        return redirect(url_for("keys_payment_pending_page", payment_id=payment_id))
 
     @app.route("/support/media/<int:ticket_id>/<path:filename>")
     @user_required

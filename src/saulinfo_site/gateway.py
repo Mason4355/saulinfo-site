@@ -192,6 +192,19 @@ class ShopUpdateGateway:
                 }
             )
 
+        paritypay_shop_id = (self.get_setting("paritypay_shop_id") or "").strip()
+        paritypay_api_secret_key = (self.get_setting("paritypay_api_secret_key") or "").strip()
+        paritypay_callback_secret_key = (self.get_setting("paritypay_callback_secret_key") or "").strip()
+        if paritypay_shop_id and paritypay_api_secret_key and paritypay_callback_secret_key:
+            methods.append(
+                {
+                    "code": "paritypay",
+                    "label": "Банковская карта / QR",
+                    "provider": "ParityPay",
+                    "note": "Оплата через ParityPay с подтверждением в общей панели.",
+                }
+            )
+
         return methods
 
     def get_host(self, host_name: str) -> dict | None:
