@@ -652,15 +652,7 @@ def create_app() -> Flask:
         payment_id = str(metadata["payment_id"])
         panel_base = panel_public_base_url()
         callback_url = f"{panel_base.rstrip('/')}/paritypay-webhook"
-        success_url = f"{public_base_url()}{url_for('keys_payment_paritypay_return', payment_id=payment_id, result='success')}"
-        fail_url = f"{public_base_url()}{url_for('keys_payment_paritypay_return', payment_id=payment_id, result='fail')}"
 
-        custom_fields = {
-            "payment_id": payment_id,
-            "user_id": int(metadata["user_id"]),
-            "action": str(metadata["action"]),
-        }
-        custom_fields_json = json.dumps(custom_fields, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         amount_value = Decimal(str(metadata["price"])).quantize(Decimal("0.01"))
         amount_payload: int | float
         if amount_value == amount_value.to_integral():
@@ -672,16 +664,8 @@ def create_app() -> Flask:
             "shop_id": shop_id,
             "amount": amount_payload,
             "order_id": payment_id,
-            "success_url": success_url,
-            "fail_url": fail_url,
             "callback_url": callback_url,
             "service": paritypay_service,
-            "custom_fields": custom_fields_json,
-            "comment": (
-                "SaulInfo: покупка ключа"
-                if str(metadata.get("action") or "").strip().lower() == "purchase"
-                else "SaulInfo: продление ключа"
-            ),
         }
         signature = _build_paritypay_signature(payload, api_secret)
         response = requests.post(
