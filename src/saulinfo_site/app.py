@@ -738,7 +738,7 @@ def create_app() -> Flask:
                             secret_label,
                         )
                         break
-                    app.logger.warning(
+                    app.logger.debug(
                         "ParityPay invoice/create rejected: status=%s payload=%s signature=%s secret=%s body=%s request_payload=%s",
                         candidate_response.status_code,
                         variant_label,
