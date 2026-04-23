@@ -626,6 +626,9 @@ def create_app() -> Flask:
         shop_id = (gateway.get_setting("paritypay_shop_id") or "").strip()
         api_secret = (gateway.get_setting("paritypay_api_secret_key") or "").strip()
         callback_secret = (gateway.get_setting("paritypay_callback_secret_key") or "").strip()
+        paritypay_service = (gateway.get_setting("paritypay_service") or "sbp").strip().lower()
+        if paritypay_service not in {"sbp", "card"}:
+            paritypay_service = "sbp"
         if not shop_id or not api_secret or not callback_secret:
             raise RuntimeError("ParityPay не настроен в панели.")
 
@@ -656,6 +659,7 @@ def create_app() -> Flask:
             "success_url": success_url,
             "fail_url": fail_url,
             "callback_url": callback_url,
+            "service": paritypay_service,
             "custom_fields": custom_fields_json,
             "comment": (
                 "SaulInfo: покупка ключа"
