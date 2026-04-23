@@ -4,6 +4,7 @@ import hmac
 import json
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -610,10 +611,19 @@ def create_app() -> Flask:
         if value is None:
             return ""
         if isinstance(value, bool):
-            return "true" if value else "false"
+            return "1" if value else ""
+        if isinstance(value, int):
+            return str(value)
+        if isinstance(value, float):
+            return format(value, "g")
+        if isinstance(value, str):
+            return value
         if isinstance(value, (dict, list, tuple)):
             return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-        return str(value)
+        try:
+            return format(Decimal(str(value)), "f").rstrip("0").rstrip(".")
+        except (InvalidOperation, ValueError):
+            return str(value)
 
     def _build_paritypay_signature(payload: dict, secret: str) -> str:
         raw = "".join(
@@ -644,9 +654,16 @@ def create_app() -> Flask:
             "action": str(metadata["action"]),
         }
         custom_fields_json = json.dumps(custom_fields, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        amount_value = Decimal(str(metadata["price"])).quantize(Decimal("0.01"))
+        amount_payload: int | float
+        if amount_value == amount_value.to_integral():
+            amount_payload = int(amount_value)
+        else:
+            amount_payload = float(amount_value)
+
         payload = {
             "shop_id": shop_id,
-            "amount": round(float(metadata["price"]), 2),
+            "amount": amount_payload,
             "order_id": payment_id,
             "success_url": success_url,
             "fail_url": fail_url,
