@@ -641,15 +641,7 @@ def create_app() -> Flask:
         custom_fields = {
             "payment_id": payment_id,
             "user_id": int(metadata["user_id"]),
-            "months": int(metadata["months"]),
-            "price": float(metadata["price"]),
             "action": str(metadata["action"]),
-            "key_id": metadata.get("key_id"),
-            "host_name": str(metadata["host_name"]),
-            "plan_id": int(metadata["plan_id"]),
-            "customer_email": str(metadata.get("customer_email") or ""),
-            "site_auth_user_id": int(metadata["site_auth_user_id"]),
-            "payment_method": "ParityPay",
         }
         custom_fields_json = json.dumps(custom_fields, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         payload = {
