@@ -648,6 +648,7 @@ def create_app() -> Flask:
             "site_auth_user_id": int(metadata["site_auth_user_id"]),
             "payment_method": "ParityPay",
         }
+        custom_fields_json = json.dumps(custom_fields, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         payload = {
             "shop_id": shop_id,
             "amount": round(float(metadata["price"]), 2),
@@ -655,7 +656,7 @@ def create_app() -> Flask:
             "success_url": success_url,
             "fail_url": fail_url,
             "callback_url": callback_url,
-            "custom_fields": custom_fields,
+            "custom_fields": custom_fields_json,
             "comment": (
                 "SaulInfo: покупка ключа"
                 if str(metadata.get("action") or "").strip().lower() == "purchase"
@@ -669,7 +670,14 @@ def create_app() -> Flask:
             headers={"Content-Type": "application/json", "X-SIGNATURE": signature},
             timeout=20,
         )
-        response.raise_for_status()
+        if response.status_code not in (200, 201):
+            app.logger.error(
+                "ParityPay invoice/create failed: status=%s body=%s payload=%s",
+                response.status_code,
+                response.text,
+                payload,
+            )
+            response.raise_for_status()
         payload_json = response.json()
         pay_url = (
             payload_json.get("link")
