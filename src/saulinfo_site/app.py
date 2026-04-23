@@ -167,6 +167,13 @@ def create_app() -> Flask:
         scheme = forwarded_proto or request.scheme or "https"
         return f"{scheme}://{host}".rstrip("/")
 
+    def panel_public_base_url() -> str:
+        base = (gateway.get_setting("domain") or "").strip() or Config.SHOP_UPDATE_PANEL_URL
+        normalized = str(base).strip().rstrip("/")
+        if "panel.saulinfo.ru" in normalized and "/control-room-saul" not in normalized:
+            normalized = f"{normalized}/control-room-saul"
+        return normalized.rstrip("/")
+
     def google_auth_enabled() -> bool:
         return bool(Config.GOOGLE_CLIENT_ID and Config.GOOGLE_CLIENT_SECRET)
 
@@ -565,7 +572,7 @@ def create_app() -> Flask:
         if not merchant_id or not api_key:
             raise RuntimeError("Heleket не настроен в панели.")
 
-        callback_base = (gateway.get_setting("domain") or "").strip() or Config.SHOP_UPDATE_PANEL_URL
+        callback_base = panel_public_base_url()
         callback_url = f"{callback_base.rstrip('/')}/heleket-webhook"
 
         payload_metadata = {
@@ -643,7 +650,7 @@ def create_app() -> Flask:
             raise RuntimeError("ParityPay не настроен в панели.")
 
         payment_id = str(metadata["payment_id"])
-        panel_base = (gateway.get_setting("domain") or "").strip() or Config.SHOP_UPDATE_PANEL_URL
+        panel_base = panel_public_base_url()
         callback_url = f"{panel_base.rstrip('/')}/paritypay-webhook"
         success_url = f"{public_base_url()}{url_for('keys_payment_paritypay_return', payment_id=payment_id, result='success')}"
         fail_url = f"{public_base_url()}{url_for('keys_payment_paritypay_return', payment_id=payment_id, result='fail')}"

@@ -17,4 +17,4 @@ class Config:
     SITE_CLEANUP_INTERVAL_HOURS = int(os.getenv("SITE_CLEANUP_INTERVAL_HOURS", "12"))
 
     SHOP_UPDATE_DB_PATH = os.getenv("SHOP_UPDATE_DB_PATH", "/integrations/shop-update/users.db")
-    SHOP_UPDATE_PANEL_URL = os.getenv("SHOP_UPDATE_PANEL_URL", "https://panel.saulinfo.ru").rstrip("/")
+    SHOP_UPDATE_PANEL_URL = os.getenv("SHOP_UPDATE_PANEL_URL", "https://panel.saulinfo.ru/control-room-saul").rstrip("/")
