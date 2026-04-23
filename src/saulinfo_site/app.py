@@ -639,6 +639,47 @@ def create_app() -> Flask:
         )
         return hmac.new(secret.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
 
+    def _build_paritypay_signature_json(payload: dict, secret: str, *, sort_keys: bool) -> str:
+        raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=sort_keys)
+        return hmac.new(secret.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    def _paritypay_amount_variants(amount_value: Decimal) -> list[object]:
+        variants: list[object] = []
+        normalized_text = format(amount_value, ".2f")
+        compact_text = format(amount_value.normalize(), "f") if amount_value != amount_value.to_integral() else str(int(amount_value))
+        scalar_value: object = int(amount_value) if amount_value == amount_value.to_integral() else float(amount_value)
+        for candidate in (scalar_value, compact_text, normalized_text):
+            if candidate not in variants:
+                variants.append(candidate)
+        return variants
+
+    def _iter_paritypay_payload_variants(
+        *,
+        shop_id: str,
+        payment_id: str,
+        callback_url: str,
+        paritypay_service: str,
+        amount_value: Decimal,
+    ) -> list[tuple[str, dict]]:
+        payload_variants: list[tuple[str, dict]] = []
+        for amount_variant in _paritypay_amount_variants(amount_value):
+            base_payload = {
+                "shop_id": shop_id,
+                "amount": amount_variant,
+                "order_id": payment_id,
+            }
+            candidate_shapes = [
+                ("full", {**base_payload, "callback_url": callback_url, "service": paritypay_service}),
+                ("callback", {**base_payload, "callback_url": callback_url}),
+                ("service", {**base_payload, "service": paritypay_service}),
+                ("minimal", dict(base_payload)),
+            ]
+            for shape_name, payload in candidate_shapes:
+                label = f"{shape_name}|amount={amount_variant}"
+                if all(existing_payload != payload for _, existing_payload in payload_variants):
+                    payload_variants.append((label, payload))
+        return payload_variants
+
     def create_paritypay_payment(metadata: dict) -> dict:
         shop_id = (gateway.get_setting("paritypay_shop_id") or "").strip()
         api_secret = (gateway.get_setting("paritypay_api_secret_key") or "").strip()
@@ -654,26 +695,72 @@ def create_app() -> Flask:
         callback_url = f"{panel_base.rstrip('/')}/paritypay-webhook"
 
         amount_value = Decimal(str(metadata["price"])).quantize(Decimal("0.01"))
-        amount_payload: int | float
-        if amount_value == amount_value.to_integral():
-            amount_payload = int(amount_value)
-        else:
-            amount_payload = float(amount_value)
-
-        payload = {
-            "shop_id": shop_id,
-            "amount": amount_payload,
-            "order_id": payment_id,
-            "callback_url": callback_url,
-            "service": paritypay_service,
-        }
-        signature = _build_paritypay_signature(payload, api_secret)
-        response = requests.post(
-            "https://api.paritypay.ru/invoice/create",
-            json=payload,
-            headers={"Content-Type": "application/json", "X-SIGNATURE": signature},
-            timeout=20,
+        payload_variants = _iter_paritypay_payload_variants(
+            shop_id=shop_id,
+            payment_id=payment_id,
+            callback_url=callback_url,
+            paritypay_service=paritypay_service,
+            amount_value=amount_value,
         )
+
+        secret_candidates = []
+        for label, secret in (("api", api_secret), ("callback", callback_secret)):
+            secret = (secret or "").strip()
+            if secret and all(existing_secret != secret for _, existing_secret in secret_candidates):
+                secret_candidates.append((label, secret))
+
+        signature_builders = [
+            ("values", _build_paritypay_signature),
+            ("json_sorted", lambda payload, secret: _build_paritypay_signature_json(payload, secret, sort_keys=True)),
+            ("json_raw", lambda payload, secret: _build_paritypay_signature_json(payload, secret, sort_keys=False)),
+        ]
+
+        response = None
+        last_http_error = None
+        payload = {}
+        for variant_label, payload_variant in payload_variants:
+            for signature_label, signature_builder in signature_builders:
+                for secret_label, secret_value in secret_candidates:
+                    signature = signature_builder(payload_variant, secret_value)
+                    candidate_response = requests.post(
+                        "https://api.paritypay.ru/invoice/create",
+                        json=payload_variant,
+                        headers={"Content-Type": "application/json", "X-SIGNATURE": signature},
+                        timeout=20,
+                    )
+                    if candidate_response.status_code in (200, 201):
+                        response = candidate_response
+                        payload = payload_variant
+                        app.logger.info(
+                            "ParityPay invoice/create accepted with payload=%s signature=%s secret=%s.",
+                            variant_label,
+                            signature_label,
+                            secret_label,
+                        )
+                        break
+                    app.logger.warning(
+                        "ParityPay invoice/create rejected: status=%s payload=%s signature=%s secret=%s body=%s request_payload=%s",
+                        candidate_response.status_code,
+                        variant_label,
+                        signature_label,
+                        secret_label,
+                        candidate_response.text,
+                        payload_variant,
+                    )
+                    if candidate_response.status_code != 401:
+                        response = candidate_response
+                        payload = payload_variant
+                        break
+                    last_http_error = candidate_response
+                if response is not None:
+                    break
+            if response is not None:
+                break
+
+        if response is None:
+            response = last_http_error
+        if response is None:
+            raise RuntimeError("ParityPay did not return a response.")
         if response.status_code not in (200, 201):
             app.logger.error(
                 "ParityPay invoice/create failed: status=%s body=%s payload=%s",
