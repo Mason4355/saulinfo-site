@@ -852,6 +852,7 @@ def create_app() -> Flask:
         metadata: dict,
         payment_method: str,
         charge_balance: bool,
+        skip_transaction_log: bool = False,
     ) -> dict:
         action = str(metadata.get("action") or "").strip().lower()
         plan_id = int(metadata.get("plan_id") or 0)
@@ -912,18 +913,19 @@ def create_app() -> Flask:
                 return {"ok": False, "message": "Ключ создался на хосте, но не сохранился в базе. Проверьте панель."}
 
             gateway.update_user_stats(user_id, price, months)
-            gateway.log_balance_transaction(
-                user_id,
-                username,
-                price,
-                {
-                    **base_metadata,
-                    "action": "new",
-                    "key_id": int(new_key_id),
-                    "key_email": str(result.get("email") or key_email),
-                },
-                payment_method=payment_method,
-            )
+            if not skip_transaction_log:
+                gateway.log_balance_transaction(
+                    user_id,
+                    username,
+                    price,
+                    {
+                        **base_metadata,
+                        "action": "new",
+                        "key_id": int(new_key_id),
+                        "key_email": str(result.get("email") or key_email),
+                    },
+                    payment_method=payment_method,
+                )
             return {
                 "ok": True,
                 "message": "Новый ключ успешно создан и появился в вашем кабинете.",
@@ -955,18 +957,19 @@ def create_app() -> Flask:
                 int(result.get("expiry_timestamp_ms") or 0),
             )
             gateway.update_user_stats(user_id, price, months)
-            gateway.log_balance_transaction(
-                user_id,
-                username,
-                price,
-                {
-                    **base_metadata,
-                    "action": "extend",
-                    "key_id": int(key["key_id"]),
-                    "key_email": str(key.get("key_email") or ""),
-                },
-                payment_method=payment_method,
-            )
+            if not skip_transaction_log:
+                gateway.log_balance_transaction(
+                    user_id,
+                    username,
+                    price,
+                    {
+                        **base_metadata,
+                        "action": "extend",
+                        "key_id": int(key["key_id"]),
+                        "key_email": str(key.get("key_email") or ""),
+                    },
+                    payment_method=payment_method,
+                )
             return {"ok": True, "message": "Ключ успешно продлён.", "key_id": int(key["key_id"])}
 
         refund_if_needed()
@@ -1001,6 +1004,58 @@ def create_app() -> Flask:
             if not gateway.add_to_balance(int(user["telegram_id"]), amount_rub):
                 return "danger", "Платёж подтверждён, но не удалось зачислить средства на баланс клиента."
             metadata["balance_credited"] = True
+
+        order_result = complete_site_order(
+            account,
+            user,
+            metadata,
+            payment_method=payment_method,
+            charge_balance=True,
+            skip_transaction_log=True,
+        )
+
+        metadata["payment_method"] = payment_method
+        metadata["verified_at"] = datetime.utcnow().isoformat(timespec="seconds")
+        transaction_username = (user.get("username") or account.get("email") or f"site_{int(user['telegram_id'])}").strip()
+
+        if order_result.get("ok"):
+            metadata["fulfilled"] = True
+            metadata["fulfilled_key_id"] = order_result.get("key_id")
+            metadata["fulfilled_message"] = order_result.get("message")
+            if not gateway.finalize_existing_transaction(
+                payment_id,
+                username=transaction_username,
+                user_id=int(user["telegram_id"]),
+                status="paid",
+                amount_rub=amount_rub,
+                amount_currency=float(verification.get("amount") or amount_rub),
+                currency_name=str(verification.get("currency_name") or "RUB"),
+                payment_method=payment_method,
+                metadata=metadata,
+            ):
+                gateway.update_transaction_metadata(payment_id, metadata)
+            gateway.cleanup_duplicate_paid_transactions()
+            return "success", str(order_result.get("message") or "РћРїР»Р°С‚Р° РїРѕРґС‚РІРµСЂР¶РґРµРЅР°, Р·Р°РєР°Р· РІС‹РїРѕР»РЅРµРЅ.")
+
+        metadata["fulfilled"] = False
+        metadata["fulfilment_error"] = order_result.get("message")
+        if not gateway.finalize_existing_transaction(
+            payment_id,
+            username=transaction_username,
+            user_id=int(user["telegram_id"]),
+            status="paid",
+            amount_rub=amount_rub,
+            amount_currency=float(verification.get("amount") or amount_rub),
+            currency_name=str(verification.get("currency_name") or "RUB"),
+            payment_method=payment_method,
+            metadata=metadata,
+        ):
+            gateway.update_transaction_metadata(payment_id, metadata)
+        return (
+            "warning",
+            f"РћРїР»Р°С‚Р° РїРѕРґС‚РІРµСЂР¶РґРµРЅР°, РЅРѕ РѕРїРµСЂР°С†РёСЏ СЃ РєР»СЋС‡РѕРј РЅРµ Р·Р°РІРµСЂС€РёР»Р°СЃСЊ: {order_result.get('message')}. "
+            "РЎСЂРµРґСЃС‚РІР° СЃРѕС…СЂР°РЅРµРЅС‹ РЅР° Р±Р°Р»Р°РЅСЃРµ Р°РєРєР°СѓРЅС‚Р°, РјРѕР¶РЅРѕ РїРѕРІС‚РѕСЂРёС‚СЊ РїРѕРєСѓРїРєСѓ РёР»Рё РѕР±СЂР°С‚РёС‚СЊСЃСЏ РІ РїРѕРґРґРµСЂР¶РєСѓ.",
+        )
 
         order_result = complete_site_order(account, user, metadata, payment_method=payment_method, charge_balance=True)
         gateway.finalize_pending_transaction(

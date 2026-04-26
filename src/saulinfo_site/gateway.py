@@ -343,6 +343,88 @@ class ShopUpdateGateway:
             metadata["payment_method"] = payment_method
             return metadata
 
+    def finalize_existing_transaction(
+        self,
+        payment_id: str,
+        *,
+        username: str,
+        user_id: int,
+        status: str,
+        amount_rub: float,
+        amount_currency: float | None,
+        currency_name: str | None,
+        payment_method: str,
+        metadata: dict,
+    ) -> bool:
+        cleaned_id = (payment_id or "").strip()
+        if not cleaned_id:
+            return False
+        with closing(self._connect()) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE transactions
+                SET username = ?,
+                    user_id = ?,
+                    status = ?,
+                    amount_rub = ?,
+                    amount_currency = COALESCE(?, amount_currency),
+                    currency_name = COALESCE(?, currency_name),
+                    payment_method = ?,
+                    metadata = ?
+                WHERE payment_id = ?
+                """,
+                (
+                    (username or "").strip() or f"site_{int(user_id)}",
+                    int(user_id),
+                    (status or "").strip() or "paid",
+                    float(amount_rub or 0),
+                    amount_currency,
+                    currency_name,
+                    (payment_method or "").strip() or "Unknown",
+                    json.dumps(metadata or {}, ensure_ascii=False),
+                    cleaned_id,
+                ),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def cleanup_duplicate_paid_transactions(self, window_minutes: int = 10) -> int:
+        removed = 0
+        with closing(self._connect()) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT t1.transaction_id
+                FROM transactions t1
+                WHERE LOWER(COALESCE(t1.status, '')) = 'paid'
+                  AND LOWER(TRIM(COALESCE(t1.username, ''))) IN ('', 'n/a')
+                  AND EXISTS (
+                    SELECT 1
+                    FROM transactions t2
+                    WHERE t2.transaction_id != t1.transaction_id
+                      AND LOWER(COALESCE(t2.status, '')) = 'paid'
+                      AND LOWER(TRIM(COALESCE(t2.username, ''))) NOT IN ('', 'n/a')
+                      AND COALESCE(t2.user_id, 0) = COALESCE(t1.user_id, 0)
+                      AND ABS(COALESCE(t2.amount_rub, 0) - COALESCE(t1.amount_rub, 0)) < 0.0001
+                      AND ABS(
+                        (julianday(COALESCE(t2.created_date, CURRENT_TIMESTAMP)) - julianday(COALESCE(t1.created_date, CURRENT_TIMESTAMP))) * 1440
+                      ) <= ?
+                  )
+                """,
+                (int(window_minutes),),
+            ).fetchall()
+            if not rows:
+                return 0
+            ids = [int(row["transaction_id"]) for row in rows if row["transaction_id"] is not None]
+            if not ids:
+                return 0
+            placeholders = ", ".join("?" for _ in ids)
+            conn.execute(f"DELETE FROM transactions WHERE transaction_id IN ({placeholders})", ids)
+            conn.commit()
+            removed = len(ids)
+        return removed
+
     def _build_subscription_link(self, host_name: str | None, client_uuid: str | None) -> str | None:
         cleaned_uuid = (client_uuid or "").strip()
         if not cleaned_uuid:
