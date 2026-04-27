@@ -32,6 +32,37 @@
   </article>
 </section>
 
+{% if trial_enabled %}
+<section class="page-card table-panel">
+  <div class="page-card-head">
+    <div>
+      <span class="eyebrow">Пробный доступ</span>
+      <h2>Получить тестовый ключ</h2>
+      <p class="muted">Пробный ключ выдаётся один раз на {{ trial_duration_days }} дн. и создаётся сразу на выбранном хосте.</p>
+    </div>
+  </div>
+  {% if can_use_trial %}
+  <form method="post" class="inline-form">
+    <input type="hidden" name="action" value="trial" />
+    <label class="form-label compact-field">
+      <span>Хост</span>
+      <select name="host_name" class="field-input">
+        <option value="">Выберите хост</option>
+        {% for host in hosts %}
+        <option value="{{ host.get('host_name') }}">{{ host.get('host_name') }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="button subtle">Получить пробный ключ</button>
+  </form>
+  {% else %}
+  <div class="empty-panel compact-empty">
+    <p>Пробный период уже использован для этого аккаунта.</p>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="section-grid-two">
   <article class="page-card table-panel">
     <div class="page-card-head">

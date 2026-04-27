@@ -635,6 +635,14 @@ class ShopUpdateGateway:
             )
             conn.commit()
 
+    def set_trial_used(self, user_id: int) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "UPDATE users SET trial_used = 1 WHERE telegram_id = ?",
+                (int(user_id),),
+            )
+            conn.commit()
+
     def log_balance_transaction(
         self,
         user_id: int,

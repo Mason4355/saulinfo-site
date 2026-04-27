@@ -765,6 +765,10 @@ img {
   margin-top: 0;
 }
 
+.compact-empty {
+  padding: 16px 18px;
+}
+
 .support-grid,
 .profile-grid,
 .auth-grid {
@@ -801,6 +805,17 @@ img {
 .stack-form {
   display: grid;
   gap: 16px;
+}
+
+.inline-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.compact-field {
+  max-width: 460px;
 }
 
 .form-grid-two {
@@ -1026,6 +1041,7 @@ img {
   }
 
   .trust-row,
+  .inline-form,
   .form-grid-two {
     grid-template-columns: 1fr;
   }

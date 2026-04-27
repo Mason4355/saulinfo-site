@@ -438,6 +438,13 @@ def create_app() -> Flask:
                 discounted_keys_count += 1
         payload["discounted_keys_count"] = discounted_keys_count
         payload["payment_methods"] = get_site_payment_methods()
+        payload["trial_enabled"] = str(gateway.get_setting("trial_enabled") or "").strip().lower() in {"1", "true", "yes", "on"}
+        try:
+            trial_days = int(gateway.get_setting("trial_duration_days") or 3)
+        except Exception:
+            trial_days = 3
+        payload["trial_duration_days"] = max(trial_days, 1)
+        payload["can_use_trial"] = bool(payload["trial_enabled"] and user and not int(user.get("trial_used") or 0))
         return payload
 
     def _parse_site_datetime(value: object) -> datetime | None:
@@ -1106,6 +1113,40 @@ def create_app() -> Flask:
         refund_if_needed()
         return {"ok": False, "message": "Неизвестное действие для страницы ключей."}
 
+    def create_site_trial_key(account: dict, user: dict, host_name: str) -> dict:
+        if int(user.get("trial_used") or 0):
+            return {"ok": False, "message": "Пробный период уже был использован."}
+        if str(gateway.get_setting("trial_enabled") or "").strip().lower() not in {"1", "true", "yes", "on"}:
+            return {"ok": False, "message": "Пробный период сейчас отключён."}
+
+        host = gateway.get_host(host_name)
+        if not host:
+            return {"ok": False, "message": "Выбранный хост сейчас недоступен."}
+
+        try:
+            trial_days = max(int(gateway.get_setting("trial_duration_days") or 3), 1)
+        except Exception:
+            trial_days = 3
+
+        user_id = int(user["telegram_id"])
+        key_email = gateway.generate_site_key_email(account.get("email", ""), user_id).replace("@site.local", "@trial.site.local")
+        result = create_or_update_key_on_host(host, key_email, days_to_add=trial_days)
+        if not result.get("ok"):
+            return {"ok": False, "message": result.get("message") or "Не удалось создать пробный ключ на выбранном хосте."}
+
+        new_key_id = gateway.add_new_key(
+            user_id=user_id,
+            host_name=host_name,
+            xui_client_uuid=str(result.get("client_uuid") or ""),
+            key_email=str(result.get("email") or key_email),
+            expiry_timestamp_ms=int(result.get("expiry_timestamp_ms") or 0),
+        )
+        if not new_key_id:
+            return {"ok": False, "message": "Пробный ключ создался на хосте, но не сохранился в базе. Проверьте панель."}
+
+        gateway.set_trial_used(user_id)
+        return {"ok": True, "message": f"Пробный ключ на {trial_days} дн. создан и появился в кабинете.", "key_id": int(new_key_id)}
+
     def handle_paid_order(account: dict | None, user: dict | None, payment_id: str, payment_method: str, verifier) -> tuple[str, str]:
         account, user = ensure_customer_context(account, user)
         if not account or not user:
@@ -1423,6 +1464,15 @@ def create_app() -> Flask:
                 return redirect(url_for("keys_page"))
 
             action = (request.form.get("action") or "").strip().lower()
+            if action == "trial":
+                host_name = (request.form.get("host_name") or "").strip()
+                if not host_name:
+                    flash("Выберите хост для пробного ключа.", "warning")
+                    return redirect(url_for("keys_page"))
+                result = create_site_trial_key(account, user, host_name)
+                flash(result.get("message") or "Операция завершена.", "success" if result.get("ok") else "danger")
+                return redirect(url_for("keys_page"))
+
             payment_method = (request.form.get("payment_method") or "balance").strip().lower()
             available_methods = {item["code"] for item in context.get("payment_methods", [])}
             if payment_method not in available_methods:
