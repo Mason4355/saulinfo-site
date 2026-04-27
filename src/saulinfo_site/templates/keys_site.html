@@ -25,6 +25,11 @@
     <strong class="metric-value">{{ hosts|length }}</strong>
     <span class="metric-note">Доступные контуры с тарифами из общей панели.</span>
   </article>
+  <article class="metric-card">
+    <span class="metric-label">Скидки</span>
+    <strong class="metric-value">{{ discounted_keys_count or 0 }}</strong>
+    <span class="metric-note">Активных персональных скидок на ваши ключи.</span>
+  </article>
 </section>
 
 <section class="section-grid-two">
@@ -78,7 +83,7 @@
           <option value="">Выберите ключ</option>
           {% for key in keys %}
           <option value="{{ key.get('key_id') }}">
-            #{{ key.get('key_id') }} · {{ key.get('host_name') or 'Хост' }} · {{ key.get('key_email') or 'без e-mail' }}
+            #{{ key.get('key_id') }} · {{ key.get('host_name') or 'Хост' }} · {{ key.get('key_email') or 'без e-mail' }}{% if key.get('discount_info') %} · скидка {{ key.get('discount_info').percent_label }}%{% endif %}
           </option>
           {% endfor %}
         </select>
@@ -125,6 +130,7 @@
           <th>Хост</th>
           <th>E-mail</th>
           <th>Истекает</th>
+          <th>Скидка</th>
           <th>Доступ</th>
           <th>Статус</th>
         </tr>
@@ -135,6 +141,17 @@
           <td>{{ key.get('host_name') or 'Хост не указан' }}</td>
           <td>{{ key.get('key_email') or 'Без e-mail' }}</td>
           <td>{{ key.get('expiry_date') or 'Без срока' }}</td>
+          <td>
+            {% if key.get('discount_info') %}
+            <div class="discount-stack">
+              <span class="status-pill success">-{{ key.get('discount_info').percent_label }}%</span>
+              <span class="muted">Тариф: {{ key.get('discount_info').plan_label }}</span>
+              <span class="muted">Действует до: {{ key.get('discount_info').until_label }}</span>
+            </div>
+            {% else %}
+            <span class="muted">Нет активной скидки</span>
+            {% endif %}
+          </td>
           <td>
             {% if key.get('subscription_url') %}
             <div class="access-stack">

@@ -423,6 +423,20 @@ def create_app() -> Flask:
 
     def build_keys_context(account: dict | None, user: dict | None) -> dict:
         payload = build_dashboard_payload(account, user)
+        plans_by_id: dict[int, dict] = {}
+        for host in payload.get("hosts") or []:
+            for plan in host.get("plans") or []:
+                try:
+                    plans_by_id[int(plan.get("plan_id"))] = dict(plan)
+                except Exception:
+                    continue
+        discounted_keys_count = 0
+        for key in payload.get("keys") or []:
+            discount_info = _build_key_discount_info(key, plans_by_id)
+            key["discount_info"] = discount_info
+            if discount_info:
+                discounted_keys_count += 1
+        payload["discounted_keys_count"] = discounted_keys_count
         payload["payment_methods"] = get_site_payment_methods()
         return payload
 
@@ -483,6 +497,65 @@ def create_app() -> Flask:
                 continue
             best = max(best, _active_key_discount_percent(key, plan_id))
         return best
+
+    def _format_percent_label(value: float) -> str:
+        try:
+            percent = float(value)
+        except Exception:
+            percent = 0.0
+        return str(int(percent)) if percent.is_integer() else f"{percent:.2f}".rstrip("0").rstrip(".")
+
+    def _format_discount_until_label(value: object) -> str:
+        parsed = _parse_site_datetime(value)
+        if not parsed:
+            return "без срока"
+        return parsed.strftime("%Y-%m-%d %H:%M")
+
+    def _format_discount_plan_label(plan_id: object, plans_by_id: dict[int, dict]) -> str:
+        if plan_id in (None, "", 0, "0"):
+            return "Любой тариф этого хоста"
+        try:
+            normalized_plan_id = int(plan_id)
+        except Exception:
+            return "Тариф не найден"
+
+        plan = plans_by_id.get(normalized_plan_id)
+        if not plan:
+            return f"Тариф #{normalized_plan_id}"
+
+        plan_name = str(plan.get("plan_name") or "").strip()
+        if not plan_name:
+            months = plan.get("months")
+            plan_name = f"{months} мес." if months else f"Тариф #{normalized_plan_id}"
+        try:
+            price_label = f"{float(plan.get('price') or 0):.2f} RUB"
+        except Exception:
+            price_label = "цена не указана"
+        host_name = str(plan.get("host_name") or "").strip()
+        return " · ".join(part for part in (host_name, plan_name, price_label) if part)
+
+    def _build_key_discount_info(key: dict | None, plans_by_id: dict[int, dict]) -> dict | None:
+        if not key:
+            return None
+        try:
+            percent = max(0.0, min(float(key.get("personal_discount_percent") or 0), 100.0))
+        except Exception:
+            percent = 0.0
+        if percent <= 0:
+            return None
+
+        discount_until = _parse_site_datetime(key.get("personal_discount_until"))
+        if discount_until and discount_until < datetime.now():
+            return None
+
+        plan_id = key.get("personal_discount_plan_id")
+        return {
+            "percent": percent,
+            "percent_label": _format_percent_label(percent),
+            "plan_id": plan_id,
+            "plan_label": _format_discount_plan_label(plan_id, plans_by_id),
+            "until_label": _format_discount_until_label(key.get("personal_discount_until")),
+        }
 
     def build_yoomoney_quickpay_url(
         wallet: str,

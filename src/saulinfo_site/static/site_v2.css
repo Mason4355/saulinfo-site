@@ -858,6 +858,16 @@ img {
   gap: 10px;
 }
 
+.discount-stack {
+  display: grid;
+  gap: 6px;
+  min-width: 190px;
+}
+
+.discount-stack .status-pill {
+  width: fit-content;
+}
+
 .access-code {
   display: block;
   max-width: 100%;
