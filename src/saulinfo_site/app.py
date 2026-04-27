@@ -426,6 +426,64 @@ def create_app() -> Flask:
         payload["payment_methods"] = get_site_payment_methods()
         return payload
 
+    def _parse_site_datetime(value: object) -> datetime | None:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        normalized = raw.replace("T", " ").replace("Z", "").strip()
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(normalized, fmt)
+            except ValueError:
+                continue
+        try:
+            parsed = datetime.fromisoformat(normalized)
+            if parsed.tzinfo is not None:
+                return parsed.astimezone().replace(tzinfo=None)
+            return parsed
+        except ValueError:
+            return None
+
+    def _active_key_discount_percent(key: dict | None, plan_id: int) -> float:
+        if not key:
+            return 0.0
+        try:
+            percent = max(0.0, min(float(key.get("personal_discount_percent") or 0), 100.0))
+        except Exception:
+            percent = 0.0
+        if percent <= 0:
+            return 0.0
+
+        discount_plan_id = key.get("personal_discount_plan_id")
+        if discount_plan_id not in (None, "", 0, "0"):
+            try:
+                if int(discount_plan_id) != int(plan_id):
+                    return 0.0
+            except Exception:
+                return 0.0
+
+        discount_until = _parse_site_datetime(key.get("personal_discount_until"))
+        if discount_until and discount_until < datetime.now():
+            return 0.0
+        return percent
+
+    def _apply_price_discount(base_price: float, discount_percent: float) -> float:
+        price = float(base_price or 0)
+        percent = max(0.0, min(float(discount_percent or 0), 100.0))
+        if price <= 0 or percent <= 0:
+            return round(price, 2)
+        discounted = price * (100.0 - percent) / 100.0
+        return round(max(discounted, 0.01), 2)
+
+    def _best_purchase_discount_percent(keys: list[dict], plan_id: int, host_name: str) -> float:
+        normalized_host = str(host_name or "").strip()
+        best = 0.0
+        for key in keys or []:
+            if str(key.get("host_name") or "").strip() != normalized_host:
+                continue
+            best = max(best, _active_key_discount_percent(key, plan_id))
+        return best
+
     def build_yoomoney_quickpay_url(
         wallet: str,
         amount: float,
@@ -1317,9 +1375,11 @@ def create_app() -> Flask:
                 flash("Хост для выбранного тарифа сейчас недоступен.", "danger")
                 return redirect(url_for("keys_page"))
 
-            price = float(plan.get("price") or 0)
+            base_price = float(plan.get("price") or 0)
+            price = base_price
+            discount_percent = 0.0
             months = int(plan.get("months") or 0)
-            if price <= 0 or months <= 0:
+            if base_price <= 0 or months <= 0:
                 flash("Тариф настроен некорректно и пока недоступен для покупки.", "danger")
                 return redirect(url_for("keys_page"))
 
@@ -1335,6 +1395,11 @@ def create_app() -> Flask:
             }
 
             if action == "purchase":
+                discount_percent = _best_purchase_discount_percent(
+                    context.get("keys") or [],
+                    int(plan["plan_id"]),
+                    host_name,
+                )
                 order_metadata["key_email"] = gateway.generate_site_key_email(account.get("email", ""), int(user["telegram_id"]))
             elif action == "renew":
                 key_raw = (request.form.get("key_id") or "").strip()
@@ -1348,11 +1413,18 @@ def create_app() -> Flask:
                 if str(key.get("host_name") or "").strip() != host_name:
                     flash("Тариф должен принадлежать тому же хосту, что и продлеваемый ключ.", "warning")
                     return redirect(url_for("keys_page"))
+                discount_percent = _active_key_discount_percent(key, int(plan["plan_id"]))
                 order_metadata["key_id"] = int(key["key_id"])
                 order_metadata["key_email"] = str(key.get("key_email") or "")
             else:
                 flash("Неизвестное действие для страницы ключей.", "warning")
                 return redirect(url_for("keys_page"))
+
+            price = _apply_price_discount(base_price, discount_percent)
+            order_metadata["base_price"] = round(base_price, 2)
+            order_metadata["price"] = price
+            order_metadata["discount_percent"] = round(float(discount_percent or 0), 2)
+            order_metadata["discount_amount"] = round(max(base_price - price, 0.0), 2)
 
             if payment_method == "balance":
                 result = complete_site_order(account, user, order_metadata, payment_method="Balance", charge_balance=True)
