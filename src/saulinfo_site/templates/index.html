@@ -1,140 +1,82 @@
 {% extends "base.html" %}
-{% block title %}SaulInfo{% endblock %}
+{% block title %}{{ site_content.brand_title }}{% endblock %}
 {% block content %}
 <main class="hero-grid">
   <section class="hero-card spotlight-card">
-    <span class="eyebrow">SaulInfo portal</span>
-    <h1>Единый веб-кабинет для доступа, ключей и поддержки.</h1>
-    <p>
-      Пользовательский контур SaulInfo собран как спокойный рабочий портал: здесь
-      видны ключи, статусы, обращения и профиль без ощущения, что вы находитесь во
-      внутренней админке или техническом интерфейсе.
-    </p>
-    <p>
-      Мы специально перестроили сайт так, чтобы он помогал работать с сервисом каждый
-      день: с любого устройства, без Telegram-зависимости в базовых действиях и без
-      лишней перегрузки на экране.
-    </p>
+    <span class="eyebrow">{{ site_content.landing_eyebrow }}</span>
+    <h1>{{ site_content.landing_title }}</h1>
+    <p>{{ site_content.landing_intro }}</p>
+    <p>{{ site_content.landing_extra }}</p>
     <div class="hero-actions">
-      <a href="{{ url_for('login_page') }}" class="button primary">Открыть кабинет</a>
+      <a href="{{ url_for('login_page') }}" class="button primary">{{ site_content.primary_button }}</a>
       {% if allow_self_registration %}
-      <a href="{{ url_for('register_page') }}" class="button ghost">Создать аккаунт</a>
+      <a href="{{ url_for('register_page') }}" class="button ghost">{{ site_content.secondary_button }}</a>
       {% else %}
-      <span class="field-note">Доступ оформляется через администратора SaulInfo.</span>
+      <span class="field-note">{{ site_content.registration_closed_note }}</span>
       {% endif %}
     </div>
     <div class="trust-row">
+      {% for item in site_content.trust %}
       <div class="trust-chip">
-        <strong>1</strong>
-        <span>единая точка входа в пользовательский контур</span>
+        <strong>{{ item.value }}</strong>
+        <span>{{ item.text }}</span>
       </div>
-      <div class="trust-chip">
-        <strong>24/7</strong>
-        <span>доступ к профилю, ключам и истории обращений</span>
-      </div>
-      <div class="trust-chip">
-        <strong>Web</strong>
-        <span>понятный интерфейс без лишних административных слоёв</span>
-      </div>
+      {% endfor %}
     </div>
   </section>
 
   <aside class="hero-visual">
     <div class="visual-panel">
-      <span class="eyebrow">Что внутри</span>
+      <span class="eyebrow">{{ site_content.visual_eyebrow }}</span>
       <div class="visual-stack">
+        {% for item in site_content.visual_items %}
         <div class="glass-line">
           <div>
-            <strong>Ключи доступа</strong>
-            <span>Все актуальные подключения и статусы в одном месте.</span>
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.text }}</span>
           </div>
-          <span class="status-pill success">Активно</span>
+          <span class="status-pill{% if item.class %} {{ item.class }}{% endif %}">{{ item.badge }}</span>
         </div>
-        <div class="glass-line">
-          <div>
-            <strong>Поддержка</strong>
-            <span>Текущие обращения и история коммуникации без потерь.</span>
-          </div>
-          <span class="status-pill">Журнал</span>
-        </div>
-        <div class="glass-line">
-          <div>
-            <strong>Профиль</strong>
-            <span>Безопасное управление данными аккаунта и доступом.</span>
-          </div>
-          <span class="status-pill warning">Под защитой</span>
-        </div>
+        {% endfor %}
       </div>
     </div>
     <div class="section-card">
-      <span class="eyebrow">Модель доступа</span>
-      <h2>Сайт уже подстроен под реальную логику SaulInfo.</h2>
+      <span class="eyebrow">{{ site_content.model_eyebrow }}</span>
+      <h2>{{ site_content.model_title }}</h2>
       <ul class="bullet-list">
-        <li>Аккаунт можно выдавать через административную панель без ручной путаницы.</li>
-        <li>Публичную регистрацию можно держать отключённой, если это нужно проекту.</li>
-        <li>Пользовательский сайт остаётся отделённым от панели и бота.</li>
+        {% for point in site_content.model_points %}
+        <li>{{ point }}</li>
+        {% endfor %}
       </ul>
     </div>
   </aside>
 </main>
 
 <section class="feature-grid">
+  {% for feature in site_content.features %}
   <article class="section-card feature-card">
-    <span class="eyebrow">Кабинет</span>
-    <h3>Всё важное на одном экране</h3>
-    <p>
-      После входа пользователь сразу попадает в рабочее пространство с краткой
-      сводкой по аккаунту, ключам, расходам и текущим обращениям.
-    </p>
+    <span class="eyebrow">{{ feature.eyebrow }}</span>
+    <h3>{{ feature.title }}</h3>
+    <p>{{ feature.text }}</p>
     <ul class="feature-list">
-      <li>виден статус аккаунта и привязка к системе</li>
-      <li>есть быстрые переходы к ключам и поддержке</li>
-      <li>спокойный светлый интерфейс без перегруза</li>
+      {% for point in feature.points %}
+      <li>{{ point }}</li>
+      {% endfor %}
     </ul>
   </article>
-
-  <article class="section-card feature-card">
-    <span class="eyebrow">Ключи</span>
-    <h3>Доступы и история по ним без хаоса</h3>
-    <p>
-      Страница ключей показывает рабочие подключения, сроки, площадки и заметки
-      так, чтобы это было понятно обычному пользователю, а не только администратору.
-    </p>
-    <ul class="feature-list">
-      <li>актуальные даты и статусы</li>
-      <li>структурированный список без лишних действий</li>
-      <li>готово под дальнейшее расширение интерфейса</li>
-    </ul>
-  </article>
-
-  <article class="section-card feature-card">
-    <span class="eyebrow">Поддержка</span>
-    <h3>История обращений всегда рядом</h3>
-    <p>
-      Пользователь видит свои тикеты и состояние поддержки прямо внутри сайта,
-      не переключаясь между несколькими контурами и чатами.
-    </p>
-    <ul class="feature-list">
-      <li>понятный список запросов</li>
-      <li>быстрая точка входа для нового обращения</li>
-      <li>готово для следующего этапа веб-отправки тикетов</li>
-    </ul>
-  </article>
+  {% endfor %}
 </section>
 
 <section class="section-card cta-strip">
   <div class="cta-copy">
-    <span class="eyebrow">Готовность</span>
-    <h2>Если доступ уже выдан, можно сразу входить в кабинет.</h2>
-    <p class="muted">
-      Если учётной записи ещё нет, запросите её у администратора SaulInfo или
-      используйте регистрацию, если она открыта для вашего контура.
-    </p>
+    <span class="eyebrow">{{ site_content.cta_eyebrow }}</span>
+    <h2>{{ site_content.cta_title }}</h2>
+    <p class="muted">{{ site_content.cta_text }}</p>
   </div>
   <div class="hero-actions">
-    <a href="{{ url_for('login_page') }}" class="button primary">Перейти ко входу</a>
+    <a href="{{ url_for('login_page') }}" class="button primary">{{ site_content.cta_primary_button }}</a>
     {% if allow_self_registration %}
-    <a href="{{ url_for('register_page') }}" class="button secondary">Создать аккаунт</a>
+    <a href="{{ url_for('register_page') }}" class="button secondary">{{ site_content.cta_secondary_button }}</a>
     {% endif %}
   </div>
 </section>

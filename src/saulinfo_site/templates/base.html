@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}SaulInfo{% endblock %}</title>
+    <title>{% block title %}{{ site_content.brand_title|default('SaulInfo') }}{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
@@ -19,8 +19,8 @@
             <a href="{{ url_for('index') }}" class="brand-lockup">
               <span class="brand-mark">S</span>
               <span class="brand-copy">
-                <span class="brand-name">SaulInfo</span>
-                <span class="brand-tag">Пользовательский кабинет</span>
+                <span class="brand-name">{{ site_content.brand_title }}</span>
+                <span class="brand-tag">{{ site_content.portal_tagline }}</span>
               </span>
             </a>
             <div class="sidebar-status">
@@ -45,8 +45,8 @@
           </nav>
 
           <div class="sidebar-status">
-            <span class="eyebrow">О кабинете</span>
-            <span class="sidebar-note">Доступы, профиль и история обращений собраны в одном спокойном рабочем интерфейсе.</span>
+            <span class="eyebrow">{{ site_content.sidebar_about_title }}</span>
+            <span class="sidebar-note">{{ site_content.sidebar_about_text }}</span>
           </div>
 
           <form action="{{ url_for('logout_page') }}" method="post">
@@ -86,8 +86,8 @@
           <a href="{{ url_for('index') }}" class="brand-lockup">
             <span class="brand-mark">S</span>
             <span class="brand-copy">
-              <span class="brand-name">SaulInfo</span>
-              <span class="brand-tag">Кабинет, поддержка и доступы</span>
+              <span class="brand-name">{{ site_content.brand_title }}</span>
+              <span class="brand-tag">{{ site_content.brand_tagline }}</span>
             </span>
           </a>
 
@@ -96,9 +96,9 @@
           </nav>
 
           <div class="header-actions">
-            <a href="{{ url_for('login_page') }}" class="button ghost">Войти</a>
+            <a href="{{ url_for('login_page') }}" class="button ghost">{{ site_content.login_button }}</a>
             {% if allow_self_registration %}
-            <a href="{{ url_for('register_page') }}" class="button primary">Создать аккаунт</a>
+            <a href="{{ url_for('register_page') }}" class="button primary">{{ site_content.register_button }}</a>
             {% endif %}
           </div>
         </header>
@@ -117,7 +117,7 @@
 
         <footer class="marketing-footer">
           <div class="marketing-footer-inner">
-            <span>SaulInfo. Защищённый пользовательский контур для доступа, ключей и поддержки.</span>
+            <span>{{ site_content.footer_text }}</span>
           </div>
         </footer>
       </div>

@@ -157,6 +157,11 @@ class ShopUpdateGateway:
                 return None
             return str(row[0]) if row[0] is not None else None
 
+    def get_settings(self) -> dict[str, str | None]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT key, value FROM bot_settings").fetchall()
+            return {str(row["key"]): (str(row["value"]) if row["value"] is not None else None) for row in rows}
+
     def get_enabled_site_payment_methods(self) -> list[dict]:
         methods: list[dict] = [
             {

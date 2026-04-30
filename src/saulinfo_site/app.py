@@ -180,6 +180,122 @@ def create_app() -> Flask:
     def google_redirect_uri() -> str:
         return f"{public_base_url()}{url_for('google_callback')}"
 
+    def build_site_content() -> dict:
+        try:
+            settings_snapshot = gateway.get_settings()
+        except Exception:
+            app.logger.exception("Failed to read site settings snapshot")
+            settings_snapshot = {}
+
+        def site_setting(key: str, default: str = "") -> str:
+            value = settings_snapshot.get(key)
+            if value is None:
+                return default
+            value = str(value)
+            return value if value.strip() else default
+
+        def site_lines(key: str, default_lines: list[str]) -> list[str]:
+            raw = site_setting(key, "\n".join(default_lines))
+            lines = [line.strip() for line in raw.splitlines() if line.strip()]
+            return lines or default_lines
+
+        return {
+            "brand_title": site_setting("site_brand_title", "SaulInfo"),
+            "brand_tagline": site_setting("site_brand_tagline", "Кабинет, поддержка и доступы"),
+            "portal_tagline": site_setting("site_portal_tagline", "Пользовательский кабинет"),
+            "footer_text": site_setting("site_footer_text", "SaulInfo. Защищённый пользовательский контур для доступа, ключей и поддержки."),
+            "login_button": site_setting("site_login_button", "Войти"),
+            "register_button": site_setting("site_register_button", "Создать аккаунт"),
+            "landing_eyebrow": site_setting("site_landing_eyebrow", "SaulInfo portal"),
+            "landing_title": site_setting("site_landing_title", "Единый веб-кабинет для доступа, ключей и поддержки."),
+            "landing_intro": site_setting("site_landing_intro", "Пользовательский контур SaulInfo собран как спокойный рабочий портал: здесь видны ключи, статусы, обращения и профиль без ощущения, что вы находитесь во внутренней админке или техническом интерфейсе."),
+            "landing_extra": site_setting("site_landing_extra", "Сайт помогает работать с сервисом каждый день: с любого устройства, без Telegram-зависимости в базовых действиях и без лишней перегрузки на экране."),
+            "primary_button": site_setting("site_primary_button", "Открыть кабинет"),
+            "secondary_button": site_setting("site_secondary_button", "Создать аккаунт"),
+            "registration_closed_note": site_setting("site_registration_closed_note", "Доступ оформляется через администратора SaulInfo."),
+            "trust": [
+                {
+                    "value": site_setting("site_trust_1_value", "1"),
+                    "text": site_setting("site_trust_1_text", "единая точка входа в пользовательский контур"),
+                },
+                {
+                    "value": site_setting("site_trust_2_value", "24/7"),
+                    "text": site_setting("site_trust_2_text", "доступ к профилю, ключам и истории обращений"),
+                },
+                {
+                    "value": site_setting("site_trust_3_value", "Web"),
+                    "text": site_setting("site_trust_3_text", "понятный интерфейс без лишних административных слоёв"),
+                },
+            ],
+            "visual_eyebrow": site_setting("site_visual_eyebrow", "Что внутри"),
+            "visual_items": [
+                {
+                    "title": site_setting("site_visual_title_1", "Ключи доступа"),
+                    "text": site_setting("site_visual_text_1", "Все актуальные подключения и статусы в одном месте."),
+                    "badge": site_setting("site_visual_badge_1", "Активно"),
+                    "class": "success",
+                },
+                {
+                    "title": site_setting("site_visual_title_2", "Поддержка"),
+                    "text": site_setting("site_visual_text_2", "Текущие обращения и история коммуникации без потерь."),
+                    "badge": site_setting("site_visual_badge_2", "Журнал"),
+                    "class": "",
+                },
+                {
+                    "title": site_setting("site_visual_title_3", "Профиль"),
+                    "text": site_setting("site_visual_text_3", "Безопасное управление данными аккаунта и доступом."),
+                    "badge": site_setting("site_visual_badge_3", "Под защитой"),
+                    "class": "warning",
+                },
+            ],
+            "model_eyebrow": site_setting("site_model_eyebrow", "Модель доступа"),
+            "model_title": site_setting("site_model_title", "Сайт уже подстроен под реальную логику SaulInfo."),
+            "model_points": site_lines("site_model_points", [
+                "Аккаунт можно выдавать через административную панель без ручной путаницы.",
+                "Публичную регистрацию можно держать отключённой, если это нужно проекту.",
+                "Пользовательский сайт остаётся отделённым от панели и бота.",
+            ]),
+            "features": [
+                {
+                    "eyebrow": site_setting("site_feature_1_eyebrow", "Кабинет"),
+                    "title": site_setting("site_feature_1_title", "Всё важное на одном экране"),
+                    "text": site_setting("site_feature_1_text", "После входа пользователь сразу попадает в рабочее пространство с краткой сводкой по аккаунту, ключам, расходам и текущим обращениям."),
+                    "points": site_lines("site_feature_1_points", [
+                        "виден статус аккаунта и привязка к системе",
+                        "есть быстрые переходы к ключам и поддержке",
+                        "спокойный светлый интерфейс без перегруза",
+                    ]),
+                },
+                {
+                    "eyebrow": site_setting("site_feature_2_eyebrow", "Ключи"),
+                    "title": site_setting("site_feature_2_title", "Доступы и история по ним без хаоса"),
+                    "text": site_setting("site_feature_2_text", "Страница ключей показывает рабочие подключения, сроки, площадки и заметки так, чтобы это было понятно обычному пользователю."),
+                    "points": site_lines("site_feature_2_points", [
+                        "актуальные даты и статусы",
+                        "структурированный список без лишних действий",
+                        "готово под дальнейшее расширение интерфейса",
+                    ]),
+                },
+                {
+                    "eyebrow": site_setting("site_feature_3_eyebrow", "Поддержка"),
+                    "title": site_setting("site_feature_3_title", "История обращений всегда рядом"),
+                    "text": site_setting("site_feature_3_text", "Пользователь видит свои тикеты и состояние поддержки прямо внутри сайта, не переключаясь между несколькими контурами и чатами."),
+                    "points": site_lines("site_feature_3_points", [
+                        "понятный список запросов",
+                        "быстрая точка входа для нового обращения",
+                        "готово для веб-отправки тикетов",
+                    ]),
+                },
+            ],
+            "cta_eyebrow": site_setting("site_cta_eyebrow", "Готовность"),
+            "cta_title": site_setting("site_cta_title", "Если доступ уже выдан, можно сразу входить в кабинет."),
+            "cta_text": site_setting("site_cta_text", "Если учётной записи ещё нет, запросите её у администратора SaulInfo или используйте регистрацию, если она открыта для вашего контура."),
+            "cta_primary_button": site_setting("site_cta_primary_button", "Перейти ко входу"),
+            "cta_secondary_button": site_setting("site_cta_secondary_button", "Создать аккаунт"),
+            "sidebar_about_title": site_setting("site_sidebar_about_title", "О кабинете"),
+            "sidebar_about_text": site_setting("site_sidebar_about_text", "Доступы, профиль и история обращений собраны в одном спокойном рабочем интерфейсе."),
+        }
+
     def set_authenticated_session(account: dict) -> tuple[dict | None, dict | None]:
         session["auth_user_id"] = int(account["auth_user_id"])
         linked_shop_user_id = account.get("linked_shop_user_id")
@@ -1262,9 +1378,11 @@ def create_app() -> Flask:
         account_label = None
         if current_account:
             account_label = ((current_account.get("display_name") or "").strip() or current_account.get("email"))
+        site_content = build_site_content()
 
         return {
-            "brand_title": "SaulInfo",
+            "brand_title": site_content["brand_title"],
+            "site_content": site_content,
             "current_user": current_user,
             "current_account": current_account,
             "account_label": account_label,
