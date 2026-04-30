@@ -1,0 +1,4 @@
+# Auto detect text files and keep shell scripts Linux-safe
+* text=auto
+*.sh text eol=lf
+update text eol=lf
