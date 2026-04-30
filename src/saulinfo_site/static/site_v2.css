@@ -193,6 +193,11 @@ img {
   flex-wrap: wrap;
 }
 
+.inline-button-form {
+  display: inline-flex;
+  margin: 0;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -240,6 +245,14 @@ img {
   color: var(--muted-strong);
   background: var(--surface-soft);
   border-color: var(--line);
+}
+
+.button.danger {
+  min-height: 40px;
+  padding: 0 16px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: rgba(204, 58, 72, 0.28);
 }
 
 .button.wide {

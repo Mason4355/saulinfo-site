@@ -299,6 +299,37 @@ class ShopUpdateGateway:
             conn.commit()
             return True
 
+    def cancel_pending_transaction(self, payment_id: str, user_id: int) -> bool:
+        cleaned_id = (payment_id or "").strip()
+        if not cleaned_id:
+            return False
+
+        transaction = self.get_transaction_by_payment_id(cleaned_id)
+        if not transaction:
+            return False
+        if int(transaction.get("user_id") or 0) != int(user_id):
+            return False
+        if str(transaction.get("status") or "").strip().lower() != "pending":
+            return False
+
+        metadata = dict(transaction.get("parsed_metadata") or {})
+        metadata["cancelled_by"] = "site-user"
+        metadata["cancelled_at"] = datetime.utcnow().isoformat(timespec="seconds")
+        with closing(self._connect()) as conn:
+            cursor = conn.execute(
+                """
+                UPDATE transactions
+                SET status = 'cancelled',
+                    metadata = ?
+                WHERE payment_id = ?
+                  AND user_id = ?
+                  AND status = 'pending'
+                """,
+                (json.dumps(metadata, ensure_ascii=False), cleaned_id, int(user_id)),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def finalize_pending_transaction(
         self,
         payment_id: str,

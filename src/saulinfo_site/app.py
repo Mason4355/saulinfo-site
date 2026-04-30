@@ -1680,7 +1680,36 @@ def create_app() -> Flask:
             payment_url=metadata.get("payment_url"),
             payment_method=metadata.get("payment_method") or metadata.get("provider") or "External",
             check_url=url_for("keys_payment_pending_check", payment_id=payment_id),
+            cancel_url=url_for("keys_payment_pending_cancel", payment_id=payment_id),
         )
+
+    @app.post("/keys/payment/cancel/<payment_id>")
+    @user_required
+    def keys_payment_pending_cancel(payment_id: str):
+        account, user = load_session_context()
+        account, user = ensure_portal_customer(account, user)
+        if not account or not user:
+            flash("Сайт не смог определить аккаунт для отмены платежа.", "warning")
+            return redirect(url_for("keys_page"))
+
+        transaction = gateway.get_transaction_by_payment_id(payment_id)
+        if not transaction or int(transaction.get("user_id") or 0) != int(user["telegram_id"]):
+            flash("Платёж для этой сессии не найден.", "warning")
+            return redirect(url_for("keys_page"))
+
+        status = str(transaction.get("status") or "").strip().lower()
+        if status == "paid":
+            flash("Этот платёж уже подтверждён, отменить его нельзя.", "warning")
+            return redirect(url_for("keys_payment_pending_check", payment_id=payment_id))
+        if status != "pending":
+            flash("Этот платёж уже не находится в ожидании.", "warning")
+            return redirect(url_for("keys_page"))
+
+        if gateway.cancel_pending_transaction(payment_id, int(user["telegram_id"])):
+            flash("Заказ отменён. Можно выбрать тариф и создать оплату заново.", "success")
+        else:
+            flash("Не удалось отменить заказ. Обновите страницу и проверьте статус.", "warning")
+        return redirect(url_for("keys_page"))
 
     @app.route("/keys/payment/check/<payment_id>")
     @user_required

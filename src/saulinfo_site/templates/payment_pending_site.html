@@ -28,6 +28,9 @@
         <a href="{{ payment_url }}" class="button primary" target="_blank" rel="noopener">Перейти к оплате</a>
         {% endif %}
         <a href="{{ check_url }}" class="button subtle">Проверить статус</a>
+        <form action="{{ cancel_url }}" method="post" class="inline-button-form">
+          <button type="submit" class="button danger">Отменить заказ</button>
+        </form>
         <a href="{{ url_for('keys_page') }}" class="button subtle">Вернуться к ключам</a>
       </div>
     </div>
