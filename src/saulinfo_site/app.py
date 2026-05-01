@@ -27,7 +27,17 @@ def create_app() -> Flask:
     auth_store = AuthStore()
     auth_store.initialize()
     cleanup_state = {"last_run": None}
-    PERSONAL_DATA_CONSENT_VERSION = "2026-05-01"
+
+    def personal_data_consent_version() -> str:
+        parts = []
+        for template_name in ("personal_data_consent.html", "privacy.html"):
+            template_path = Path(app.template_folder or "templates") / template_name
+            try:
+                parts.append(template_path.read_text(encoding="utf-8"))
+            except OSError:
+                app.logger.warning("Consent template is not readable: %s", template_path)
+        digest = hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:12]
+        return f"pd-{datetime.utcnow():%Y%m%d}-{digest}"
 
     def safe_gateway_call(label: str, fn, fallback):
         try:
@@ -1389,7 +1399,7 @@ def create_app() -> Flask:
             "account_label": account_label,
             "allow_self_registration": Config.ALLOW_SELF_REGISTRATION,
             "google_auth_enabled": google_auth_enabled(),
-            "personal_data_consent_version": PERSONAL_DATA_CONSENT_VERSION,
+            "personal_data_consent_version": personal_data_consent_version(),
             "now": datetime.utcnow(),
         }
 
@@ -1478,7 +1488,7 @@ def create_app() -> Flask:
         if request.form.get("personal_data_consent") != "yes":
             flash("Для регистрации нужно согласие на обработку персональных данных.", "warning")
             return redirect(url_for("register_page"))
-        session["personal_data_consent_version"] = PERSONAL_DATA_CONSENT_VERSION
+        session["personal_data_consent_version"] = personal_data_consent_version()
         return redirect(url_for("google_login"))
 
     @app.get("/login/google/callback")
@@ -1544,7 +1554,8 @@ def create_app() -> Flask:
 
         existing_account = auth_store.get_user_by_google_sub(google_sub) or auth_store.get_user_by_email(email)
         consent_version = str(session.pop("personal_data_consent_version", "") or "")
-        if not existing_account and consent_version != PERSONAL_DATA_CONSENT_VERSION:
+        current_consent_version = personal_data_consent_version()
+        if not existing_account and consent_version != current_consent_version:
             flash("Для создания аккаунта через Google сначала подтвердите согласие на обработку персональных данных.", "warning")
             return redirect(url_for("register_page"))
 
@@ -1552,7 +1563,7 @@ def create_app() -> Flask:
             email,
             google_sub,
             display_name,
-            consent_version if not existing_account else None,
+            consent_version if consent_version == current_consent_version else None,
         )
         if not account:
             flash("Не удалось подготовить аккаунт для входа через Google.", "danger")
@@ -1577,7 +1588,7 @@ def create_app() -> Flask:
             ok, message = auth_store.create_user(
                 email,
                 password,
-                consent_version=PERSONAL_DATA_CONSENT_VERSION,
+                consent_version=personal_data_consent_version(),
             )
             flash(message, "success" if ok else "warning")
             if ok:
