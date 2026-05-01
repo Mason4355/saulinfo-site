@@ -118,6 +118,10 @@
         <footer class="marketing-footer">
           <div class="marketing-footer-inner">
             <span>{{ site_content.footer_text }}</span>
+            <span class="footer-links">
+              <a href="{{ url_for('privacy_page') }}">Политика данных</a>
+              <a href="{{ url_for('personal_data_consent_page') }}">Согласие</a>
+            </span>
           </div>
         </footer>
       </div>

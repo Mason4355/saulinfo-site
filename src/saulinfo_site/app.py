@@ -27,6 +27,7 @@ def create_app() -> Flask:
     auth_store = AuthStore()
     auth_store.initialize()
     cleanup_state = {"last_run": None}
+    PERSONAL_DATA_CONSENT_VERSION = "2026-05-01"
 
     def safe_gateway_call(label: str, fn, fallback):
         try:
@@ -1388,6 +1389,7 @@ def create_app() -> Flask:
             "account_label": account_label,
             "allow_self_registration": Config.ALLOW_SELF_REGISTRATION,
             "google_auth_enabled": google_auth_enabled(),
+            "personal_data_consent_version": PERSONAL_DATA_CONSENT_VERSION,
             "now": datetime.utcnow(),
         }
 
@@ -1420,6 +1422,14 @@ def create_app() -> Flask:
     @app.route("/healthz")
     def healthz():
         return {"ok": True, "service": "saulinfo-site"}, 200
+
+    @app.get("/privacy")
+    def privacy_page():
+        return render_template("privacy.html")
+
+    @app.get("/personal-data-consent")
+    def personal_data_consent_page():
+        return render_template("personal_data_consent.html")
 
     @app.route("/login", methods=["GET", "POST"])
     def login_page():
@@ -1456,6 +1466,20 @@ def create_app() -> Flask:
             "state": state,
         }
         return redirect(f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}")
+
+    @app.post("/register/google")
+    def google_register():
+        if not google_auth_enabled():
+            flash("Вход через Google пока не настроен.", "warning")
+            return redirect(url_for("register_page"))
+        if not Config.ALLOW_SELF_REGISTRATION:
+            flash("Самостоятельная регистрация отключена. Доступ к сайту выдаёт администратор.", "warning")
+            return redirect(url_for("login_page"))
+        if request.form.get("personal_data_consent") != "yes":
+            flash("Для регистрации нужно согласие на обработку персональных данных.", "warning")
+            return redirect(url_for("register_page"))
+        session["personal_data_consent_version"] = PERSONAL_DATA_CONSENT_VERSION
+        return redirect(url_for("google_login"))
 
     @app.get("/login/google/callback")
     def google_callback():
@@ -1518,7 +1542,18 @@ def create_app() -> Flask:
                 flash("Самостоятельная регистрация отключена. Доступ к сайту выдаёт администратор.", "warning")
                 return redirect(url_for("login_page"))
 
-        account = auth_store.create_or_update_google_user(email, google_sub, display_name)
+        existing_account = auth_store.get_user_by_google_sub(google_sub) or auth_store.get_user_by_email(email)
+        consent_version = str(session.pop("personal_data_consent_version", "") or "")
+        if not existing_account and consent_version != PERSONAL_DATA_CONSENT_VERSION:
+            flash("Для создания аккаунта через Google сначала подтвердите согласие на обработку персональных данных.", "warning")
+            return redirect(url_for("register_page"))
+
+        account = auth_store.create_or_update_google_user(
+            email,
+            google_sub,
+            display_name,
+            consent_version if not existing_account else None,
+        )
         if not account:
             flash("Не удалось подготовить аккаунт для входа через Google.", "danger")
             return redirect(url_for("login_page"))
@@ -1536,7 +1571,14 @@ def create_app() -> Flask:
         if request.method == "POST":
             email = request.form.get("email", "")
             password = request.form.get("password", "")
-            ok, message = auth_store.create_user(email, password)
+            if request.form.get("personal_data_consent") != "yes":
+                flash("Для регистрации нужно согласие на обработку персональных данных.", "warning")
+                return render_template("register.html")
+            ok, message = auth_store.create_user(
+                email,
+                password,
+                consent_version=PERSONAL_DATA_CONSENT_VERSION,
+            )
             flash(message, "success" if ok else "warning")
             if ok:
                 account = auth_store.get_user_by_email(email)

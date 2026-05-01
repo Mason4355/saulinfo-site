@@ -28,6 +28,8 @@ class AuthStore:
                     display_name TEXT,
                     google_sub TEXT UNIQUE,
                     linked_shop_user_id INTEGER,
+                    personal_data_consent_at TIMESTAMP,
+                    personal_data_consent_version TEXT,
                     support_last_seen_at TIMESTAMP,
                     last_login_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -43,13 +45,23 @@ class AuthStore:
                 conn.execute("ALTER TABLE auth_users ADD COLUMN display_name TEXT")
             if "google_sub" not in columns:
                 conn.execute("ALTER TABLE auth_users ADD COLUMN google_sub TEXT")
+            if "personal_data_consent_at" not in columns:
+                conn.execute("ALTER TABLE auth_users ADD COLUMN personal_data_consent_at TIMESTAMP")
+            if "personal_data_consent_version" not in columns:
+                conn.execute("ALTER TABLE auth_users ADD COLUMN personal_data_consent_version TEXT")
             if "support_last_seen_at" not in columns:
                 conn.execute("ALTER TABLE auth_users ADD COLUMN support_last_seen_at TIMESTAMP")
             if "last_login_at" not in columns:
                 conn.execute("ALTER TABLE auth_users ADD COLUMN last_login_at TIMESTAMP")
             conn.commit()
 
-    def create_user(self, email: str, password: str, linked_shop_user_id: int | None = None) -> tuple[bool, str]:
+    def create_user(
+        self,
+        email: str,
+        password: str,
+        linked_shop_user_id: int | None = None,
+        consent_version: str | None = None,
+    ) -> tuple[bool, str]:
         cleaned_email = (email or "").strip().lower()
         cleaned_password = (password or "").strip()
         if not cleaned_email or "@" not in cleaned_email:
@@ -61,14 +73,19 @@ class AuthStore:
             with closing(self._connect()) as conn:
                 conn.execute(
                     """
-                    INSERT INTO auth_users (email, password_hash, display_name, linked_shop_user_id, last_login_at, updated_at)
-                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    INSERT INTO auth_users (
+                        email, password_hash, display_name, linked_shop_user_id,
+                        personal_data_consent_at, personal_data_consent_version,
+                        last_login_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     """,
                     (
                         cleaned_email,
                         generate_password_hash(cleaned_password),
                         None,
                         int(linked_shop_user_id) if linked_shop_user_id not in (None, "") else None,
+                        (consent_version or "").strip() or None,
                     ),
                 )
                 conn.commit()
@@ -84,6 +101,7 @@ class AuthStore:
             row = conn.execute(
                 """
                 SELECT auth_user_id, email, display_name, google_sub, password_hash, linked_shop_user_id,
+                       personal_data_consent_at, personal_data_consent_version,
                        support_last_seen_at, last_login_at, created_at, updated_at
                 FROM auth_users
                 WHERE email = ?
@@ -111,6 +129,7 @@ class AuthStore:
             row = conn.execute(
                 """
                 SELECT auth_user_id, email, display_name, google_sub, linked_shop_user_id,
+                       personal_data_consent_at, personal_data_consent_version,
                        support_last_seen_at, last_login_at, created_at, updated_at
                 FROM auth_users
                 WHERE auth_user_id = ?
@@ -128,6 +147,7 @@ class AuthStore:
             row = conn.execute(
                 """
                 SELECT auth_user_id, email, display_name, google_sub, linked_shop_user_id,
+                       personal_data_consent_at, personal_data_consent_version,
                        support_last_seen_at, last_login_at, created_at, updated_at
                 FROM auth_users
                 WHERE email = ?
@@ -145,6 +165,7 @@ class AuthStore:
             row = conn.execute(
                 """
                 SELECT auth_user_id, email, display_name, google_sub, linked_shop_user_id,
+                       personal_data_consent_at, personal_data_consent_version,
                        support_last_seen_at, last_login_at, created_at, updated_at
                 FROM auth_users
                 WHERE google_sub = ?
@@ -166,7 +187,13 @@ class AuthStore:
             )
             conn.commit()
 
-    def create_or_update_google_user(self, email: str, google_sub: str, display_name: str | None = None) -> dict | None:
+    def create_or_update_google_user(
+        self,
+        email: str,
+        google_sub: str,
+        display_name: str | None = None,
+        consent_version: str | None = None,
+    ) -> dict | None:
         cleaned_email = (email or "").strip().lower()
         cleaned_google_sub = (google_sub or "").strip()
         cleaned_name = (display_name or "").strip() or None
@@ -187,17 +214,30 @@ class AuthStore:
 
             if row:
                 auth_user_id = int(row["auth_user_id"])
+                cleaned_consent_version = (consent_version or "").strip() or None
                 conn.execute(
                     """
                     UPDATE auth_users
                     SET email = ?,
                         display_name = COALESCE(?, display_name),
                         google_sub = ?,
+                        personal_data_consent_at = CASE
+                            WHEN ? IS NOT NULL AND personal_data_consent_at IS NULL THEN CURRENT_TIMESTAMP
+                            ELSE personal_data_consent_at
+                        END,
+                        personal_data_consent_version = COALESCE(personal_data_consent_version, ?),
                         last_login_at = CURRENT_TIMESTAMP,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE auth_user_id = ?
                     """,
-                    (cleaned_email, cleaned_name, cleaned_google_sub, auth_user_id),
+                    (
+                        cleaned_email,
+                        cleaned_name,
+                        cleaned_google_sub,
+                        cleaned_consent_version,
+                        cleaned_consent_version,
+                        auth_user_id,
+                    ),
                 )
                 conn.commit()
                 return self.get_user(auth_user_id)
@@ -205,10 +245,20 @@ class AuthStore:
             generated_password_hash = generate_password_hash(secrets.token_urlsafe(32))
             cursor = conn.execute(
                 """
-                INSERT INTO auth_users (email, password_hash, display_name, google_sub, last_login_at, updated_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO auth_users (
+                    email, password_hash, display_name, google_sub,
+                    personal_data_consent_at, personal_data_consent_version,
+                    last_login_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """,
-                (cleaned_email, generated_password_hash, cleaned_name, cleaned_google_sub),
+                (
+                    cleaned_email,
+                    generated_password_hash,
+                    cleaned_name,
+                    cleaned_google_sub,
+                    (consent_version or "").strip() or None,
+                ),
             )
             conn.commit()
             return self.get_user(int(cursor.lastrowid))
