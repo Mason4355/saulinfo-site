@@ -23,6 +23,14 @@ require_cmd() {
 require_cmd git
 require_cmd docker
 
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD=(docker-compose)
+else
+  fail "docker compose or docker-compose is required"
+fi
+
 [ -d "${PROJECT_DIR}" ] || fail "project dir not found: ${PROJECT_DIR}"
 
 cd "${PROJECT_DIR}"
@@ -30,6 +38,10 @@ cd "${PROJECT_DIR}"
 if [ ! -d .git ]; then
   fail "no git repository in ${PROJECT_DIR}"
 fi
+
+# Ignore executable-bit noise on Linux hosts so update commands don't fail
+# after chmod fixes done by installer or admin.
+git config core.filemode false || true
 
 if [ -n "$(git status --porcelain)" ]; then
   fail "working tree is dirty; commit or discard local changes before update"
@@ -49,7 +61,7 @@ else
 fi
 
 log "Rebuilding and restarting container"
-docker compose up -d --build --remove-orphans
+"${COMPOSE_CMD[@]}" up -d --build --remove-orphans
 
 log "Waiting for container health: ${CONTAINER_NAME}"
 START_TS="$(date +%s)"
@@ -67,7 +79,7 @@ while true; do
   NOW_TS="$(date +%s)"
   ELAPSED="$((NOW_TS - START_TS))"
   if [ "${ELAPSED}" -ge "${WAIT_SECONDS}" ]; then
-    docker compose logs --tail=120
+    "${COMPOSE_CMD[@]}" logs --tail=120
     fail "container ${CONTAINER_NAME} did not become healthy within ${WAIT_SECONDS}s (status=${STATUS})"
   fi
 
