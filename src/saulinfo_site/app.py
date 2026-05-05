@@ -46,6 +46,9 @@ def create_app() -> Flask:
         digest = hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:12]
         return f"pd-{digest}"
 
+    def personal_data_consent_display_version() -> str:
+        return "актуальная редакция"
+
     def safe_gateway_call(label: str, fn, fallback):
         try:
             return fn()
@@ -1437,6 +1440,7 @@ def create_app() -> Flask:
             "allow_self_registration": Config.ALLOW_SELF_REGISTRATION,
             "google_auth_enabled": google_auth_enabled(),
             "personal_data_consent_version": personal_data_consent_version(),
+            "personal_data_consent_display_version": personal_data_consent_display_version(),
             "now": datetime.utcnow(),
         }
 
