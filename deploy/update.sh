@@ -20,6 +20,14 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "command not found: $1"
 }
 
+short_commit() {
+  git rev-parse --short "$1"
+}
+
+commit_subject() {
+  git log -1 --format=%s "$1"
+}
+
 require_cmd git
 require_cmd docker
 
@@ -52,13 +60,26 @@ git fetch origin "${BRANCH}"
 
 LOCAL_COMMIT="$(git rev-parse HEAD)"
 REMOTE_COMMIT="$(git rev-parse "origin/${BRANCH}")"
+LOCAL_SHORT="$(short_commit "${LOCAL_COMMIT}")"
+LOCAL_SUBJECT="$(commit_subject "${LOCAL_COMMIT}")"
+REMOTE_SHORT="$(short_commit "${REMOTE_COMMIT}")"
+REMOTE_SUBJECT="$(commit_subject "${REMOTE_COMMIT}")"
+UPDATE_STATUS="NO CHANGES"
+
+log "Current commit: ${LOCAL_SHORT} ${LOCAL_SUBJECT}"
+log "Latest remote:  ${REMOTE_SHORT} ${REMOTE_SUBJECT}"
 
 if [ "${LOCAL_COMMIT}" != "${REMOTE_COMMIT}" ]; then
-  log "Updating repository to ${REMOTE_COMMIT}"
+  UPDATE_STATUS="UPDATED"
+  log "Applying new patches from origin/${BRANCH}"
   git merge --ff-only "origin/${BRANCH}"
 else
   log "Repository already up to date"
 fi
+
+FINAL_COMMIT="$(git rev-parse HEAD)"
+FINAL_SHORT="$(short_commit "${FINAL_COMMIT}")"
+FINAL_SUBJECT="$(commit_subject "${FINAL_COMMIT}")"
 
 log "Rebuilding and restarting container"
 "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
@@ -94,4 +115,8 @@ if [ "${DOCKER_CLEANUP}" = "1" ]; then
   docker image prune -f >/dev/null 2>&1 || true
 fi
 
-log "Update complete: ${REMOTE_COMMIT}"
+log "Patch result: ${UPDATE_STATUS}"
+log "Before: ${LOCAL_SHORT} ${LOCAL_SUBJECT}"
+log "After:  ${FINAL_SHORT} ${FINAL_SUBJECT}"
+log "Container ${CONTAINER_NAME}: ${STATUS}"
+log "Update complete"
