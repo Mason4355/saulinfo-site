@@ -1,51 +1,46 @@
 {% extends "base.html" %}
 {% block title %}Вход{% endblock %}
 {% block content %}
-<main class="auth-layout">
-  <section class="auth-grid">
-    <article class="auth-card">
-      <span class="eyebrow">Авторизация</span>
-      <h1>Вход в личный кабинет SaulInfo</h1>
-      <p>Используйте e-mail и пароль от аккаунта сайта. Если регистрация включена, можно сразу создать новый доступ или войти через Google.</p>
-      <form method="post" class="auth-form">
-        <label class="form-label">
-          <span>E-mail</span>
-          <input type="email" name="email" placeholder="name@example.com" required />
-        </label>
-        <label class="form-label">
-          <span>Пароль</span>
-          <input type="password" name="password" placeholder="Введите пароль" required />
-        </label>
-        <button type="submit" class="button primary wide">Войти</button>
-      </form>
-      {% if google_auth_enabled and allow_self_registration %}
-      <div class="auth-divider"><span>или</span></div>
-      <a href="{{ url_for('google_login') }}" class="button ghost wide">Войти через Google</a>
-      {% endif %}
-      <div class="field-note">
-        {% if allow_self_registration %}
-        Нет аккаунта? <a href="{{ url_for('register_page') }}" class="inline-link">Создать доступ</a>
-        {% else %}
-        Если доступа ещё нет, обратитесь к администратору SaulInfo.
-        {% endif %}
-      </div>
-    </article>
+<main class="auth-page">
+  <section class="auth-card">
+    <span class="kicker">Вход</span>
+    <h1>Войти в кабинет</h1>
+    <p>Используйте e-mail и пароль от аккаунта сайта. Кабинет работает без обязательной привязки Telegram.</p>
 
-    <aside class="auth-side">
-      <div class="section-card">
-        <span class="eyebrow">Пользовательский контур</span>
-        <h2>Вход в спокойный рабочий интерфейс.</h2>
-        <ul class="bullet-list">
-          <li>ключи, профиль и поддержка собраны в одном кабинете</li>
-          <li>вход работает по e-mail и паролю, а при включённой интеграции и через Google</li>
-          <li>аккаунты без активных ключей очищаются автоматически только после долгой неактивности</li>
-        </ul>
-      </div>
-      <div class="section-card">
-        <span class="eyebrow">Дальше</span>
-        <p class="muted">После входа вы сразу попадёте в личный кабинет SaulInfo с доступом к покупке ключей, продлению, профилю и истории обращений.</p>
-      </div>
-    </aside>
+    <form method="post" class="form-stack">
+      <label>
+        <span>E-mail</span>
+        <input type="email" name="email" placeholder="name@example.com" required />
+      </label>
+      <label>
+        <span>Пароль</span>
+        <input type="password" name="password" placeholder="Введите пароль" required />
+      </label>
+      <button type="submit" class="btn btn-primary btn-wide">Войти</button>
+    </form>
+
+    {% if google_auth_enabled and allow_self_registration %}
+    <div class="divider"><span>или</span></div>
+    <a href="{{ url_for('google_login') }}" class="btn btn-ghost btn-wide">Войти через Google</a>
+    {% endif %}
+
+    <p class="hint">
+      {% if allow_self_registration %}
+      Нет аккаунта? <a href="{{ url_for('register_page') }}">Создать доступ</a>
+      {% else %}
+      Если доступа ещё нет, обратитесь к администратору.
+      {% endif %}
+    </p>
   </section>
+
+  <aside class="auth-aside">
+    <span class="kicker">Кабинет</span>
+    <h2>Всё нужное без лишнего шума.</h2>
+    <ul class="clean-list">
+      <li>Покупка и продление ключей на сайте.</li>
+      <li>История обращений и ответы поддержки.</li>
+      <li>Профиль и смена пароля в одном месте.</li>
+    </ul>
+  </aside>
 </main>
 {% endblock %}

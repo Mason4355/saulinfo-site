@@ -1,83 +1,75 @@
 {% extends "base.html" %}
 {% block title %}{{ site_content.brand_title }}{% endblock %}
 {% block content %}
-<main class="hero-grid">
-  <section class="hero-card spotlight-card">
-    <span class="eyebrow">{{ site_content.landing_eyebrow }}</span>
-    <h1>{{ site_content.landing_title }}</h1>
-    <p>{{ site_content.landing_intro }}</p>
-    <p>{{ site_content.landing_extra }}</p>
-    <div class="hero-actions">
-      <a href="{{ url_for('login_page') }}" class="button primary">{{ site_content.primary_button }}</a>
-      {% if allow_self_registration %}
-      <a href="{{ url_for('register_page') }}" class="button ghost">{{ site_content.secondary_button }}</a>
-      {% else %}
-      <span class="field-note">{{ site_content.registration_closed_note }}</span>
-      {% endif %}
-    </div>
-    <div class="trust-row">
-      {% for item in site_content.trust %}
-      <div class="trust-chip">
-        <strong>{{ item.value }}</strong>
-        <span>{{ item.text }}</span>
+<main class="home">
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="kicker">{{ site_content.landing_eyebrow }}</span>
+      <h1>{{ site_content.landing_title }}</h1>
+      <p>{{ site_content.landing_intro }}</p>
+      <p class="muted">{{ site_content.landing_extra }}</p>
+      <div class="action-row">
+        <a href="{{ url_for('login_page') }}" class="btn btn-primary">{{ site_content.primary_button }}</a>
+        {% if allow_self_registration %}
+        <a href="{{ url_for('register_page') }}" class="btn btn-ghost">{{ site_content.secondary_button }}</a>
+        {% else %}
+        <span class="hint">{{ site_content.registration_closed_note }}</span>
+        {% endif %}
       </div>
-      {% endfor %}
     </div>
-  </section>
 
-  <aside class="hero-visual">
-    <div class="visual-panel">
-      <span class="eyebrow">{{ site_content.visual_eyebrow }}</span>
-      <div class="visual-stack">
+    <aside class="hero-panel">
+      <span class="kicker">{{ site_content.visual_eyebrow }}</span>
+      <div class="status-list">
         {% for item in site_content.visual_items %}
-        <div class="glass-line">
+        <div class="status-item">
           <div>
             <strong>{{ item.title }}</strong>
             <span>{{ item.text }}</span>
           </div>
-          <span class="status-pill{% if item.class %} {{ item.class }}{% endif %}">{{ item.badge }}</span>
+          <em class="{{ item.class }}">{{ item.badge }}</em>
         </div>
         {% endfor %}
       </div>
-    </div>
-    <div class="section-card">
-      <span class="eyebrow">{{ site_content.model_eyebrow }}</span>
-      <h2>{{ site_content.model_title }}</h2>
-      <ul class="bullet-list">
-        {% for point in site_content.model_points %}
+    </aside>
+  </section>
+
+  <section class="trust-grid">
+    {% for item in site_content.trust %}
+    <article>
+      <strong>{{ item.value }}</strong>
+      <span>{{ item.text }}</span>
+    </article>
+    {% endfor %}
+  </section>
+
+  <section class="feature-grid">
+    {% for feature in site_content.features %}
+    <article class="card">
+      <span class="kicker">{{ feature.eyebrow }}</span>
+      <h2>{{ feature.title }}</h2>
+      <p>{{ feature.text }}</p>
+      <ul class="clean-list">
+        {% for point in feature.points %}
         <li>{{ point }}</li>
         {% endfor %}
       </ul>
+    </article>
+    {% endfor %}
+  </section>
+
+  <section class="cta-card">
+    <div>
+      <span class="kicker">{{ site_content.cta_eyebrow }}</span>
+      <h2>{{ site_content.cta_title }}</h2>
+      <p>{{ site_content.cta_text }}</p>
     </div>
-  </aside>
+    <div class="action-row">
+      <a href="{{ url_for('login_page') }}" class="btn btn-primary">{{ site_content.cta_primary_button }}</a>
+      {% if allow_self_registration %}
+      <a href="{{ url_for('register_page') }}" class="btn btn-ghost">{{ site_content.cta_secondary_button }}</a>
+      {% endif %}
+    </div>
+  </section>
 </main>
-
-<section class="feature-grid">
-  {% for feature in site_content.features %}
-  <article class="section-card feature-card">
-    <span class="eyebrow">{{ feature.eyebrow }}</span>
-    <h3>{{ feature.title }}</h3>
-    <p>{{ feature.text }}</p>
-    <ul class="feature-list">
-      {% for point in feature.points %}
-      <li>{{ point }}</li>
-      {% endfor %}
-    </ul>
-  </article>
-  {% endfor %}
-</section>
-
-<section class="section-card cta-strip">
-  <div class="cta-copy">
-    <span class="eyebrow">{{ site_content.cta_eyebrow }}</span>
-    <h2>{{ site_content.cta_title }}</h2>
-    <p class="muted">{{ site_content.cta_text }}</p>
-  </div>
-  <div class="hero-actions">
-    <a href="{{ url_for('login_page') }}" class="button primary">{{ site_content.cta_primary_button }}</a>
-    {% if allow_self_registration %}
-    <a href="{{ url_for('register_page') }}" class="button secondary">{{ site_content.cta_secondary_button }}</a>
-    {% endif %}
-  </div>
-</section>
 {% endblock %}

@@ -2,86 +2,48 @@
 {% block title %}Профиль{% endblock %}
 {% set page_eyebrow = 'Profile' %}
 {% set page_title = 'Профиль и безопасность' %}
-{% set page_subtitle = 'Управляйте именем в кабинете, проверяйте привязку и обновляйте пароль в безопасном контуре.' %}
+{% set page_subtitle = 'Данные аккаунта и смена пароля.' %}
 {% block content %}
-<section class="profile-grid">
-  <article class="page-card profile-card">
-    <div class="page-card-head">
-      <div>
-        <span class="eyebrow">Основные данные</span>
-        <h2>Личный профиль</h2>
-      </div>
-    </div>
-    <form method="post" class="auth-form">
+<section class="split-grid">
+  <article class="card">
+    <div class="card-head"><div><span class="kicker">Профиль</span><h2>Личные данные</h2></div></div>
+    <form method="post" class="form-stack">
       <input type="hidden" name="action" value="profile" />
-      <label class="form-label">
-        <span>E-mail</span>
-        <input type="email" value="{{ account.email if account else '' }}" disabled />
-      </label>
-      <label class="form-label">
-        <span>Имя в кабинете</span>
-        <input type="text" name="display_name" value="{{ account.get('display_name', '') if account else '' }}" placeholder="Как отображать вас в кабинете" />
-      </label>
-      <label class="form-label">
-        <span>Telegram ID</span>
-        <input type="text" value="{{ user.get('telegram_id') if user else 'Не привязан' }}" disabled />
-      </label>
-      <button type="submit" class="button primary wide">Сохранить данные</button>
+      <label><span>E-mail</span><input type="email" value="{{ account.email if account else '' }}" disabled /></label>
+      <label><span>Имя в кабинете</span><input type="text" name="display_name" value="{{ account.get('display_name', '') if account else '' }}" placeholder="Как отображать вас в кабинете" /></label>
+      <label><span>Telegram ID</span><input type="text" value="{{ user.get('telegram_id') if user else 'Не привязан' }}" disabled /></label>
+      <button type="submit" class="btn btn-primary">Сохранить</button>
     </form>
   </article>
 
-  <aside class="profile-summary">
-    <span class="eyebrow">Статус</span>
-    <div class="sidebar-meta">
-      <strong>{{ account_label or (current_user.get('username') if current_user else 'Аккаунт SaulInfo') }}</strong>
-      <span>{{ account.email if account else 'Без e-mail' }}</span>
-    </div>
-    <ul class="bullet-list">
-      <li>Профиль сайта связан с текущим веб-доступом.</li>
-      <li>Если Telegram не привязан, кабинет всё равно остаётся рабочим.</li>
-      <li>Дополнительные меры безопасности можно добавлять дальше без ломки интерфейса.</li>
+  <aside class="card">
+    <span class="kicker">Статус</span>
+    <h2>{{ account_label or (current_user.get('username') if current_user else 'Аккаунт') }}</h2>
+    <p class="muted">{{ account.email if account else 'Без e-mail' }}</p>
+    <ul class="clean-list">
+      <li>Веб-аккаунт работает отдельно от Telegram.</li>
+      <li>Пароль можно сменить в любой момент.</li>
+      <li>Покупки и обращения остаются привязаны к текущему профилю.</li>
     </ul>
   </aside>
 </section>
 
-<section class="section-grid-two">
-  <article class="page-card profile-card">
-    <div class="page-card-head">
-      <div>
-        <span class="eyebrow">Безопасность</span>
-        <h2>Смена пароля</h2>
-      </div>
-    </div>
-    <form method="post" class="auth-form">
+<section class="split-grid">
+  <article class="card">
+    <div class="card-head"><div><span class="kicker">Безопасность</span><h2>Смена пароля</h2></div></div>
+    <form method="post" class="form-stack">
       <input type="hidden" name="action" value="password" />
-      <label class="form-label">
-        <span>Текущий пароль</span>
-        <input type="password" name="current_password" required />
-      </label>
-      <label class="form-label">
-        <span>Новый пароль</span>
-        <input type="password" name="new_password" required />
-      </label>
-      <label class="form-label">
-        <span>Повторите новый пароль</span>
-        <input type="password" name="confirm_password" required />
-      </label>
-      <button type="submit" class="button primary wide">Обновить пароль</button>
+      <label><span>Текущий пароль</span><input type="password" name="current_password" required /></label>
+      <label><span>Новый пароль</span><input type="password" name="new_password" required /></label>
+      <label><span>Повторите новый пароль</span><input type="password" name="confirm_password" required /></label>
+      <button type="submit" class="btn btn-primary">Обновить пароль</button>
     </form>
   </article>
 
-  <article class="page-card table-panel">
-    <div class="page-card-head">
-      <div>
-        <span class="eyebrow">Следующий этап</span>
-        <h2>2FA и защита входа</h2>
-      </div>
-    </div>
-    <ul class="timeline-list">
-      <li><strong>Пароль уже управляется внутри кабинета</strong><span>Изменение проходит через локальное auth-хранилище сайта.</span></li>
-      <li><strong>Профиль изолирован от административной панели</strong><span>Пользователь работает только со своим контуром.</span></li>
-      <li><strong>Дополнительная 2FA может быть добавлена без переделки страницы</strong><span>Интерфейс уже подготовлен под это расширение.</span></li>
-    </ul>
+  <article class="card">
+    <span class="kicker">Важно</span>
+    <h2>Безопасный доступ</h2>
+    <p class="muted">Не передавайте пароль третьим лицам. Если доступ создавал администратор, после первого входа лучше установить свой пароль.</p>
   </article>
 </section>
 {% endblock %}

@@ -1,46 +1,25 @@
 {% extends "base.html" %}
 {% block title %}{{ site_content.consent_title }}{% endblock %}
 {% block content %}
-<main class="legal-layout">
-  <article class="page-card legal-card">
-    <span class="eyebrow">Согласие</span>
+<main class="legal-page">
+  <article class="card legal-card">
+    <span class="kicker">Согласие</span>
     <h1>{{ site_content.consent_title }}</h1>
     <p class="muted">Редакция: {{ personal_data_consent_display_version }}. {{ site_content.consent_intro }}</p>
 
-    <section class="legal-section">
-      <h2>1. Что подтверждает пользователь</h2>
-      <p>{{ site_content.consent_confirmation_text }}</p>
-    </section>
-
-    <section class="legal-section">
+    <section><h2>1. Что подтверждает пользователь</h2><p>{{ site_content.consent_confirmation_text }}</p></section>
+    <section>
       <h2>2. Какие данные могут обрабатываться</h2>
-      <ul class="bullet-list">
-        {% for item in site_content.consent_data_categories %}
-        <li>{{ item }}</li>
-        {% endfor %}
-      </ul>
-      <p class="field-note">SaulInfo не просит и не хранит полные данные банковских карт. Такие данные вводятся на стороне платёжного провайдера, если выбран соответствующий способ оплаты.</p>
+      <ul class="clean-list">{% for item in site_content.consent_data_categories %}<li>{{ item }}</li>{% endfor %}</ul>
+      <p class="hint">SaulInfo не просит и не хранит полные данные банковских карт. Эти данные вводятся на стороне платёжного провайдера.</p>
     </section>
+    <section><h2>3. Для чего это нужно</h2><p>{{ site_content.consent_purpose_text }}</p></section>
+    <section><h2>4. Фото и изображения в поддержке</h2><p>{{ site_content.consent_support_media_text }}</p><p class="hint">{{ site_content.consent_support_media_note }}</p></section>
+    <section><h2>5. Срок действия и отзыв</h2><p>{{ site_content.consent_retention_text }}</p></section>
 
-    <section class="legal-section">
-      <h2>3. Для чего это нужно</h2>
-      <p>{{ site_content.consent_purpose_text }}</p>
-    </section>
-
-    <section class="legal-section">
-      <h2>4. Фото и изображения в поддержке</h2>
-      <p>{{ site_content.consent_support_media_text }}</p>
-      <p class="field-note">{{ site_content.consent_support_media_note }}</p>
-    </section>
-
-    <section class="legal-section">
-      <h2>5. Срок действия и отзыв</h2>
-      <p>{{ site_content.consent_retention_text }}</p>
-    </section>
-
-    <div class="legal-actions">
-      <a href="{{ url_for('register_page') }}" class="button primary">Вернуться к регистрации</a>
-      <a href="{{ url_for('privacy_page') }}" class="button ghost">Политика обработки данных</a>
+    <div class="action-row">
+      <a href="{{ url_for('register_page') }}" class="btn btn-primary">К регистрации</a>
+      <a href="{{ url_for('privacy_page') }}" class="btn btn-ghost">Политика данных</a>
     </div>
   </article>
 </main>

@@ -1,51 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Ожидание оплаты{% endblock %}
 {% set page_eyebrow = 'Payment' %}
-{% set page_title = 'Ожидание подтверждения оплаты' %}
-{% set page_subtitle = 'Сайт ждёт подтверждение от платёжной системы и панели SaulInfo. После этого ключ появится в кабинете автоматически.' %}
+{% set page_title = 'Ожидание оплаты' %}
+{% set page_subtitle = 'После подтверждения платежа ключ появится в кабинете автоматически.' %}
 {% block content %}
-<section class="section-grid-two">
-  <article class="page-card table-panel">
-    <div class="page-card-head">
-      <div>
-        <span class="eyebrow">Платёж</span>
-        <h2>Заказ уже создан</h2>
-      </div>
+<section class="split-grid">
+  <article class="card">
+    <span class="kicker">Платёж</span>
+    <h2>Заказ создан</h2>
+    <div class="info-list">
+      <div><span>ID платежа</span><strong>{{ payment_id }}</strong></div>
+      <div><span>Способ</span><strong>{{ payment_method }}</strong></div>
     </div>
-    <div class="stack-form">
-      <div class="metric-card">
-        <span class="metric-label">ID платежа</span>
-        <strong class="metric-value">{{ payment_id }}</strong>
-        <span class="metric-note">Сохраните ID, если нужно будет быстро найти оплату в панели.</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">Способ оплаты</span>
-        <strong class="metric-value">{{ payment_method }}</strong>
-        <span class="metric-note">После подтверждения сайт сам завершит покупку или продление ключа.</span>
-      </div>
-      <div class="auth-actions">
-        {% if payment_url %}
-        <a href="{{ payment_url }}" class="button primary" target="_blank" rel="noopener">Перейти к оплате</a>
-        {% endif %}
-        <a href="{{ check_url }}" class="button subtle">Проверить статус</a>
-        <form action="{{ cancel_url }}" method="post" class="inline-button-form">
-          <button type="submit" class="button danger">Отменить заказ</button>
-        </form>
-        <a href="{{ url_for('keys_page') }}" class="button subtle">Вернуться к ключам</a>
-      </div>
+    <div class="action-row wrap">
+      {% if payment_url %}
+      <a href="{{ payment_url }}" class="btn btn-primary" target="_blank" rel="noopener">Перейти к оплате</a>
+      {% endif %}
+      <a href="{{ check_url }}" class="btn btn-ghost">Проверить статус</a>
+      <form action="{{ cancel_url }}" method="post" class="inline-form-button">
+        <button type="submit" class="btn btn-danger">Отменить заказ</button>
+      </form>
+      <a href="{{ url_for('keys_page') }}" class="btn btn-ghost">К ключам</a>
     </div>
   </article>
 
-  <aside class="support-summary">
-    <span class="eyebrow">Что дальше</span>
-    <div class="sidebar-meta">
-      <strong>Сайт работает через ту же панель SaulInfo</strong>
-      <span>Как только платёжная система подтвердит оплату, сайт завершит заказ и отразит результат в кабинете.</span>
-    </div>
-    <ul class="bullet-list">
-      <li>Если вы уже оплатили, используйте кнопку проверки статуса.</li>
-      <li>При успешной оплате новый ключ появится на странице ключей автоматически.</li>
-      <li>Если операция с ключом не завершится, деньги не потеряются и останутся на балансе аккаунта.</li>
+  <aside class="card">
+    <span class="kicker">Что дальше</span>
+    <h2>Сайт всё завершит сам</h2>
+    <ul class="clean-list">
+      <li>Если оплатили, нажмите проверку статуса.</li>
+      <li>После подтверждения доступ появится на странице ключей.</li>
+      <li>Если ключ не создался сразу, деньги не потеряются и останутся в истории платежей.</li>
     </ul>
   </aside>
 </section>

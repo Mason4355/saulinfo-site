@@ -1,72 +1,43 @@
 {% extends "base.html" %}
 {% block title %}Кабинет{% endblock %}
 {% set page_eyebrow = 'Dashboard' %}
-{% set page_title = 'Ваш кабинет SaulInfo' %}
-{% set page_subtitle = 'Сводка по аккаунту, ключам, расходам и поддержке в одном понятном интерфейсе.' %}
+{% set page_title = 'Ваш кабинет' %}
+{% set page_subtitle = 'Сводка по аккаунту, ключам, расходам и поддержке.' %}
 {% block content %}
 <section class="metric-grid">
-  <article class="metric-card">
-    <span class="metric-label">Баланс</span>
-    <strong class="metric-value">{{ '%.2f'|format((user.get('balance', 0) if user else 0) or 0) }} RUB</strong>
-    <span class="metric-note">Актуальный остаток по вашему аккаунту.</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Активные ключи</span>
-    <strong class="metric-value">{{ active_keys_count }}</strong>
-    <span class="metric-note">Подключений отображается в кабинете.</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Открытые обращения</span>
-    <strong class="metric-value">{{ open_tickets_count }}</strong>
-    <span class="metric-note">Тикетов сейчас в работе.</span>
-  </article>
-  <article class="metric-card">
-    <span class="metric-label">Рефералы</span>
-    <strong class="metric-value">{{ referrals|length }}</strong>
-    <span class="metric-note">Связанных реферальных записей.</span>
-  </article>
+  <article class="metric-card"><span>Баланс</span><strong>{{ '%.2f'|format((user.get('balance', 0) if user else 0) or 0) }} ₽</strong><small>Доступный остаток аккаунта.</small></article>
+  <article class="metric-card"><span>Активные ключи</span><strong>{{ active_keys_count }}</strong><small>Ключи с действующим доступом.</small></article>
+  <article class="metric-card"><span>Поддержка</span><strong>{{ open_tickets_count }}</strong><small>Открытые обращения.</small></article>
+  <article class="metric-card"><span>Рефералы</span><strong>{{ referrals|length }}</strong><small>Связанные записи.</small></article>
 </section>
 
-<section class="section-grid-two">
-  <article class="page-card table-panel">
-    <div class="page-card-head">
-      <div>
-        <span class="eyebrow">Сводка по аккаунту</span>
-        <h2>Основные показатели</h2>
-      </div>
-      <a href="{{ url_for('keys_page') }}" class="button subtle">Ключи</a>
+<section class="split-grid">
+  <article class="card">
+    <div class="card-head">
+      <div><span class="kicker">Аккаунт</span><h2>Основное</h2></div>
+      <a href="{{ url_for('profile_page') }}" class="btn btn-ghost">Профиль</a>
     </div>
-    <div class="summary-stack">
-      <div class="summary-row"><strong>E-mail</strong><span>{{ account.email if account else '—' }}</span></div>
-      <div class="summary-row"><strong>Telegram ID</strong><span>{% if user %}{{ user.get('telegram_id') }}{% else %}Не привязан{% endif %}</span></div>
-      <div class="summary-row"><strong>Потрачено</strong><span>{{ '%.2f'|format((user.get('total_spent', 0) if user else 0) or 0) }} RUB</span></div>
-      <div class="summary-row"><strong>Месяцев использования</strong><span>{{ (user.get('total_months', 0) if user else 0) or 0 }}</span></div>
-      <div class="summary-row"><strong>Площадок с тарифами</strong><span>{{ hosts|length }}</span></div>
+    <div class="info-list">
+      <div><span>E-mail</span><strong>{{ account.email if account else '—' }}</strong></div>
+      <div><span>Telegram ID</span><strong>{% if user %}{{ user.get('telegram_id') }}{% else %}Не привязан{% endif %}</strong></div>
+      <div><span>Потрачено</span><strong>{{ '%.2f'|format((user.get('total_spent', 0) if user else 0) or 0) }} ₽</strong></div>
+      <div><span>Месяцев доступа</span><strong>{{ (user.get('total_months', 0) if user else 0) or 0 }}</strong></div>
     </div>
   </article>
 
-  <article class="page-card table-panel">
-    <div class="page-card-head">
-      <div>
-        <span class="eyebrow">Последние обращения</span>
-        <h2>Поддержка</h2>
-      </div>
-      <a href="{{ url_for('support_page') }}" class="button subtle">Открыть поддержку</a>
+  <article class="card">
+    <div class="card-head">
+      <div><span class="kicker">Последние обращения</span><h2>Поддержка</h2></div>
+      <a href="{{ url_for('support_page') }}" class="btn btn-ghost">Открыть</a>
     </div>
-    <div class="ticket-list">
+    <div class="compact-list">
       {% for ticket in tickets[:3] %}
-      <article class="ticket-card">
-        <div class="ticket-card-top">
-          <div>
-            <strong>#{{ ticket.get('ticket_id', '—') }}</strong>
-            <div class="muted">{{ ticket.get('subject') or 'Без темы' }}</div>
-          </div>
-          <span class="status-pill">{{ ticket.get('status', 'unknown') }}</span>
-        </div>
-        <span class="muted">{{ ticket.get('updated_at') or 'Без обновлений' }}</span>
+      <article class="mini-row">
+        <div><strong>#{{ ticket.get('ticket_id', '—') }}</strong><span>{{ ticket.get('subject') or 'Без темы' }}</span></div>
+        <em>{{ ticket.get('status', 'open') }}</em>
       </article>
       {% else %}
-      <div class="empty-state">Обращений пока нет. Когда история появится, она отобразится здесь.</div>
+      <div class="empty">Обращений пока нет.</div>
       {% endfor %}
     </div>
   </article>

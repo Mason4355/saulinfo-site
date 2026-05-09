@@ -1,128 +1,74 @@
 {% extends "base.html" %}
 {% block title %}Поддержка{% endblock %}
 {% set page_eyebrow = 'Support' %}
-{% set page_title = 'Поддержка и обращения' %}
-{% set page_subtitle = 'Если у клиента есть доступ к кабинету SaulInfo, он может писать в поддержку прямо с сайта. Тикет сразу появляется в общей системе панели.' %}
+{% set page_title = 'Поддержка' %}
+{% set page_subtitle = 'Обращения с сайта попадают в общую панель поддержки.' %}
 {% block content %}
-<section class="support-grid">
-  <article class="page-card table-panel">
-    <div class="page-card-head">
-      <div>
-        <span class="eyebrow">История</span>
-        <h2>Ваши обращения</h2>
-      </div>
-    </div>
+<section class="split-grid support-layout">
+  <article class="card">
+    <div class="card-head"><div><span class="kicker">История</span><h2>Ваши обращения</h2></div></div>
     {% if tickets %}
-    <div class="support-history">
+    <div class="cards-list">
       {% for ticket in tickets %}
       <article class="ticket-card">
-        <div class="ticket-card-top">
-          <div>
-            <strong>#{{ ticket.get('ticket_id', '—') }}</strong>
-            <div class="muted">{{ ticket.get('subject') or 'Без темы' }}</div>
-          </div>
-          <span class="status-pill">{{ ticket.get('status', 'open') }}</span>
+        <div class="ticket-head">
+          <div><strong>#{{ ticket.get('ticket_id', '—') }}</strong><span>{{ ticket.get('subject') or 'Без темы' }}</span></div>
+          <em>{{ ticket.get('status', 'open') }}</em>
         </div>
-        <div class="ticket-meta">
-          <span class="muted">Последнее обновление</span>
-          <span>{{ ticket.get('updated_at') or '—' }}</span>
-        </div>
+        <small>Обновлено: {{ ticket.get('updated_at') or '—' }}</small>
         {% set messages = ticket_threads.get(ticket.get('ticket_id'), []) %}
         {% if messages %}
         <div class="message-thread">
           {% for message in messages %}
-          <div class="message-bubble{% if (message.get('sender') or '').strip().lower() != 'user' %} staff{% endif %}">
+          <div class="message{% if (message.get('sender') or '').strip().lower() != 'user' %} staff{% endif %}">
             <strong>{{ 'Вы' if (message.get('sender') or '').strip().lower() == 'user' else 'Поддержка' }}</strong>
             <p>{{ message.get('content') }}</p>
             {% if message.get('media_items') %}
-            <div class="support-media-grid">
+            <div class="media-grid">
               {% for media in message.get('media_items') %}
-              <a class="support-media-item" href="{{ media.url }}" target="_blank" rel="noopener">
-                <img src="{{ media.url }}" alt="{{ media.original_name }}">
-              </a>
+              <a href="{{ media.url }}" target="_blank" rel="noopener"><img src="{{ media.url }}" alt="{{ media.original_name }}"></a>
               {% endfor %}
             </div>
             {% endif %}
-            <span>{{ message.get('created_at') or '—' }}</span>
+            <small>{{ message.get('created_at') or '—' }}</small>
           </div>
           {% endfor %}
         </div>
         {% endif %}
         {% set ticket_status = (ticket.get('status') or '').strip().lower() %}
         {% if ticket_status not in ['closed', 'resolved', 'done'] %}
-        <form method="post" class="auth-form ticket-reply-form" enctype="multipart/form-data">
+        <form method="post" class="form-stack compact" enctype="multipart/form-data">
           <input type="hidden" name="action" value="reply" />
           <input type="hidden" name="ticket_id" value="{{ ticket.get('ticket_id') }}" />
-          <label class="form-label">
-            <span>Фото</span>
-            <input type="file" name="photos" accept="image/*" multiple>
-          </label>
-          <label class="form-label">
-            <span>Ответ в обращение</span>
-            <textarea name="message" rows="3" placeholder="Напишите ответ для поддержки"></textarea>
-          </label>
-          <button type="submit" class="button subtle">Отправить ответ</button>
+          <label><span>Фото</span><input type="file" name="photos" accept="image/*" multiple></label>
+          <label><span>Ответ</span><textarea name="message" rows="3" placeholder="Напишите ответ"></textarea></label>
+          <button type="submit" class="btn btn-ghost">Отправить ответ</button>
         </form>
         {% endif %}
       </article>
       {% endfor %}
     </div>
     {% else %}
-    <div class="empty-state">Обращений пока нет. Как только вы отправите сообщение, тикет сразу появится здесь и в панели поддержки.</div>
+    <div class="empty">Обращений пока нет.</div>
     {% endif %}
   </article>
 
-  <aside class="support-summary">
-    <span class="eyebrow">Новая заявка</span>
-    <div class="sidebar-meta">
-      <strong>Поддержка связана с панелью</strong>
-      <span>Форма сайта пишет обращение прямо в общую базу SaulInfo, которую уже читает панель администраторов.</span>
-    </div>
-    <ul class="bullet-list">
-      <li>Тема помогает быстрее разнести заявку внутри панели.</li>
-      <li>Первое сообщение сразу создаёт тикет и открывает историю в кабинете.</li>
-      <li>Если понадобится продолжение, вся переписка останется в одном месте.</li>
-    </ul>
+  <aside class="card sticky-card">
+    <span class="kicker">Новая заявка</span>
+    {% if has_open_ticket %}
+    <h2>У вас уже есть открытое обращение</h2>
+    <p class="muted">Продолжайте диалог в текущем тикете. Новую заявку можно создать после закрытия предыдущей.</p>
+    {% else %}
+    <h2>Написать в поддержку</h2>
+    <form method="post" class="form-stack" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="new" />
+      <label><span>Фото</span><input type="file" name="photos" accept="image/*" multiple></label>
+      <label><span>Тема</span><input type="text" name="subject" placeholder="Кратко опишите вопрос" /></label>
+      <label><span>Сообщение</span><textarea name="message" rows="6" placeholder="Опишите вопрос или проблему"></textarea></label>
+      <button type="submit" class="btn btn-primary">Отправить обращение</button>
+      <small class="hint">Фото прикрепляются добровольно и используются только для обработки обращения.</small>
+    </form>
+    {% endif %}
   </aside>
 </section>
-
-{% if has_open_ticket %}
-<section class="page-card profile-card">
-  <div class="page-card-head">
-    <div>
-      <span class="eyebrow">Открытое обращение</span>
-      <h2>Новую заявку пока создать нельзя</h2>
-    </div>
-  </div>
-  <div class="empty-state">
-    У вас уже есть открытое обращение. Продолжайте диалог в текущем тикете выше или дождитесь, пока поддержка закроет его.
-  </div>
-</section>
-{% else %}
-<section class="page-card profile-card">
-  <div class="page-card-head">
-    <div>
-      <span class="eyebrow">Новое обращение</span>
-      <h2>Написать в поддержку</h2>
-    </div>
-  </div>
-  <form method="post" class="auth-form" enctype="multipart/form-data">
-    <input type="hidden" name="action" value="new" />
-    <label class="form-label">
-      <span>Фото</span>
-      <input type="file" name="photos" accept="image/*" multiple>
-    </label>
-    <label class="form-label">
-      <span>Тема</span>
-      <input type="text" name="subject" placeholder="Кратко опишите вопрос" />
-    </label>
-    <label class="form-label">
-      <span>Сообщение</span>
-      <textarea name="message" rows="6" placeholder="Подробно опишите вопрос, проблему или что нужно сделать"></textarea>
-    </label>
-    <button type="submit" class="button primary">Отправить обращение</button>
-    <span class="field-note">После отправки заявка сразу появится и в панели поддержки SaulInfo, и в истории этого кабинета.</span>
-  </form>
-</section>
-{% endif %}
 {% endblock %}

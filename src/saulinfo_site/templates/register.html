@@ -1,63 +1,57 @@
 {% extends "base.html" %}
 {% block title %}Регистрация{% endblock %}
 {% block content %}
-<main class="auth-layout">
-  <section class="auth-grid">
-    <article class="auth-card">
-      <span class="eyebrow">Новый доступ</span>
-      <h1>Создание аккаунта SaulInfo</h1>
-      <p>Зарегистрируйтесь по e-mail или через Google. После регистрации сайт сразу авторизует вас и откроет личный кабинет без обязательной привязки Telegram.</p>
-      <form method="post" class="auth-form">
-        <label class="form-label">
-          <span>E-mail</span>
-          <input type="email" name="email" placeholder="name@example.com" required />
-        </label>
-        <label class="form-label">
-          <span>Пароль</span>
-          <input type="password" name="password" placeholder="Минимум 6 символов" required />
-        </label>
-        <label class="consent-check">
-          <input type="checkbox" name="personal_data_consent" value="yes" required />
-          <span>
-            Я даю согласие на обработку персональных данных, включая e-mail, данные аккаунта,
-            данные заказов и платежей, а также добровольно прикрепляемые материалы обращений
-            в поддержку, включая изображения/фотографии. Подтверждаю, что ознакомлен с
-            <a href="{{ url_for('personal_data_consent_page') }}" class="inline-link" target="_blank" rel="noopener">согласием</a>
-            и
-            <a href="{{ url_for('privacy_page') }}" class="inline-link" target="_blank" rel="noopener">политикой обработки персональных данных</a>.
-          </span>
-        </label>
-        <button type="submit" class="button primary wide">Создать аккаунт</button>
-      </form>
-      {% if google_auth_enabled %}
-      <div class="auth-divider"><span>или</span></div>
-      <form method="post" action="{{ url_for('google_register') }}" class="auth-form compact-form">
-        <label class="consent-check">
-          <input type="checkbox" name="personal_data_consent" value="yes" required />
-          <span>
-            Я согласен с обработкой персональных данных для регистрации через Google и работы личного кабинета.
-          </span>
-        </label>
-        <button type="submit" class="button ghost wide">Продолжить через Google</button>
-      </form>
-      {% endif %}
-      <div class="field-note">
-        Согласие: {{ personal_data_consent_display_version }}. Уже есть доступ?
-        <a href="{{ url_for('login_page') }}" class="inline-link">Войти в кабинет</a>
-      </div>
-    </article>
+<main class="auth-page">
+  <section class="auth-card">
+    <span class="kicker">Новый доступ</span>
+    <h1>Создать аккаунт</h1>
+    <p>Зарегистрируйтесь по e-mail. После создания аккаунта сайт сразу откроет личный кабинет.</p>
 
-    <aside class="auth-side">
-      <div class="section-card">
-        <span class="eyebrow">Как это работает</span>
-        <ul class="timeline-list">
-          <li><strong>1. Создаётся аккаунт сайта</strong><span>Он используется для входа в личный кабинет SaulInfo по почте или через Google.</span></li>
-          <li><strong>2. Сайт сам готовит клиентский профиль</strong><span>После первого входа кабинет подключает покупки ключей, продление и поддержку без обязательного Telegram.</span></li>
-          <li><strong>3. Платежи и поддержка учитываются прозрачно</strong><span>Сайт хранит историю заказов, статусы платежей, обращения и добровольно прикреплённые изображения, но не хранит данные банковских карт.</span></li>
-          <li><strong>4. Неактивные пустые аккаунты не копятся бесконечно</strong><span>Если у пользователя нет активного ключа и он не заходит 90 дней, система очищает такой аккаунт автоматически.</span></li>
-        </ul>
-      </div>
-    </aside>
+    <form method="post" class="form-stack">
+      <label>
+        <span>E-mail</span>
+        <input type="email" name="email" placeholder="name@example.com" required />
+      </label>
+      <label>
+        <span>Пароль</span>
+        <input type="password" name="password" placeholder="Минимум 6 символов" required />
+      </label>
+      <label class="check-row">
+        <input type="checkbox" name="personal_data_consent" value="yes" required />
+        <span>
+          Я даю согласие на обработку персональных данных, включая e-mail, данные заказов и платежей,
+          а также добровольно прикрепляемые материалы обращений в поддержку, включая фото.
+          Ознакомлен с <a href="{{ url_for('personal_data_consent_page') }}" target="_blank" rel="noopener">согласием</a>
+          и <a href="{{ url_for('privacy_page') }}" target="_blank" rel="noopener">политикой обработки данных</a>.
+        </span>
+      </label>
+      <button type="submit" class="btn btn-primary btn-wide">Создать аккаунт</button>
+    </form>
+
+    {% if google_auth_enabled %}
+    <div class="divider"><span>или</span></div>
+    <form method="post" action="{{ url_for('google_register') }}" class="form-stack">
+      <label class="check-row">
+        <input type="checkbox" name="personal_data_consent" value="yes" required />
+        <span>Я согласен на обработку персональных данных для регистрации через Google.</span>
+      </label>
+      <button type="submit" class="btn btn-ghost btn-wide">Продолжить через Google</button>
+    </form>
+    {% endif %}
+
+    <p class="hint">
+      Редакция согласия: {{ personal_data_consent_display_version }}.
+      Уже есть доступ? <a href="{{ url_for('login_page') }}">Войти</a>
+    </p>
   </section>
+
+  <aside class="auth-aside">
+    <span class="kicker">Как это работает</span>
+    <ol class="step-list">
+      <li><strong>Аккаунт сайта</strong><span>Создаётся отдельный веб-доступ по почте.</span></li>
+      <li><strong>Ключи и платежи</strong><span>Покупка и продление работают через общую панель.</span></li>
+      <li><strong>Поддержка с фото</strong><span>Изображения можно прикреплять к обращениям добровольно.</span></li>
+    </ol>
+  </aside>
 </main>
 {% endblock %}
