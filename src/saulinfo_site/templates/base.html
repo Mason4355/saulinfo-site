@@ -99,7 +99,7 @@
         {% endif %}
       {% endwith %}
 
-      {% block content %}{% endblock %}
+      {{ self.content() }}
 
       <footer class="site-footer">
         <span>{{ site_content.footer_text }}</span>
