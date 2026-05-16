@@ -31,6 +31,12 @@ commit_subject() {
 require_cmd git
 require_cmd docker
 
+# Avoid Docker Buildx provenance/attestation hangs on small VPSes.
+export COMPOSE_BAKE=false
+export DOCKER_BUILDKIT=0
+export COMPOSE_DOCKER_CLI_BUILD=0
+export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD=(docker compose)
 elif command -v docker-compose >/dev/null 2>&1; then
