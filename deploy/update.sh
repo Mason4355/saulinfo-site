@@ -81,8 +81,13 @@ FINAL_COMMIT="$(git rev-parse HEAD)"
 FINAL_SHORT="$(short_commit "${FINAL_COMMIT}")"
 FINAL_SUBJECT="$(commit_subject "${FINAL_COMMIT}")"
 
-log "Rebuilding and restarting container"
-"${COMPOSE_CMD[@]}" up -d --build --remove-orphans
+if [ "${UPDATE_STATUS}" = "UPDATED" ] || [ "${FORCE_REBUILD:-0}" = "1" ]; then
+  log "Rebuilding and restarting container"
+  "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
+else
+  log "No new patches; ensuring container is running without rebuild"
+  "${COMPOSE_CMD[@]}" up -d --remove-orphans
+fi
 
 log "Waiting for container health: ${CONTAINER_NAME}"
 START_TS="$(date +%s)"
