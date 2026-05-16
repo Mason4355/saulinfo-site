@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+. "${SCRIPT_DIR}/progress.sh"
+
 PROJECT_DIR="${PROJECT_DIR:-/root/saulinfo-site}"
 BRANCH="${BRANCH:-main}"
 CONTAINER_NAME="${CONTAINER_NAME:-saulinfo-site}"
@@ -36,6 +40,7 @@ export COMPOSE_BAKE=false
 export DOCKER_BUILDKIT=0
 export COMPOSE_DOCKER_CLI_BUILD=0
 export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+export BUILDKIT_PROGRESS=plain
 
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD=(docker compose)
@@ -48,6 +53,7 @@ fi
 [ -d "${PROJECT_DIR}" ] || fail "project dir not found: ${PROJECT_DIR}"
 
 cd "${PROJECT_DIR}"
+progress_init 7 "Cabinet update progress"
 
 if [ ! -d .git ]; then
   fail "no git repository in ${PROJECT_DIR}"
@@ -61,6 +67,7 @@ if [ -n "$(git status --porcelain)" ]; then
   fail "working tree is dirty; commit or discard local changes before update"
 fi
 
+progress_step "Fetch latest patches"
 log "Fetching latest changes from origin/${BRANCH}"
 git fetch origin "${BRANCH}"
 
@@ -77,9 +84,11 @@ log "Latest remote:  ${REMOTE_SHORT} ${REMOTE_SUBJECT}"
 
 if [ "${LOCAL_COMMIT}" != "${REMOTE_COMMIT}" ]; then
   UPDATE_STATUS="UPDATED"
+  progress_step "Apply patches"
   log "Applying new patches from origin/${BRANCH}"
   git merge --ff-only "origin/${BRANCH}"
 else
+  progress_step "Check patch state"
   log "Repository already up to date"
 fi
 
@@ -88,13 +97,17 @@ FINAL_SHORT="$(short_commit "${FINAL_COMMIT}")"
 FINAL_SUBJECT="$(commit_subject "${FINAL_COMMIT}")"
 
 if [ "${UPDATE_STATUS}" = "UPDATED" ] || [ "${FORCE_REBUILD:-0}" = "1" ]; then
+  progress_step "Build and restart container"
   log "Rebuilding and restarting container"
+  progress_note "Docker build output is shown below; provenance/Bake are disabled."
   "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
 else
+  progress_step "Ensure container is running"
   log "No new patches; ensuring container is running without rebuild"
   "${COMPOSE_CMD[@]}" up -d --remove-orphans
 fi
 
+progress_step "Wait for container health"
 log "Waiting for container health: ${CONTAINER_NAME}"
 START_TS="$(date +%s)"
 while true; do
@@ -119,15 +132,20 @@ while true; do
 done
 
 if [ "${DOCKER_CLEANUP}" = "1" ]; then
+  progress_step "Clean Docker cache"
   log "Pruning Docker builder cache"
   docker builder prune -af >/dev/null 2>&1 || true
 
   log "Pruning dangling Docker images"
   docker image prune -f >/dev/null 2>&1 || true
+else
+  progress_step "Skip Docker cleanup"
 fi
 
+progress_step "Print update result"
 log "Patch result: ${UPDATE_STATUS}"
 log "Before: ${LOCAL_SHORT} ${LOCAL_SUBJECT}"
 log "After:  ${FINAL_SHORT} ${FINAL_SUBJECT}"
 log "Container ${CONTAINER_NAME}: ${STATUS}"
+progress_step "Finish"
 log "Update complete"
