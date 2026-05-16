@@ -11,6 +11,7 @@ CONTAINER_NAME="${CONTAINER_NAME:-saulinfo-site}"
 WAIT_SECONDS="${WAIT_SECONDS:-90}"
 DOCKER_CLEANUP="${DOCKER_CLEANUP:-1}"
 USE_PREBUILT_IMAGES="${USE_PREBUILT_IMAGES:-1}"
+DOCKER_PRUNE_ALL_IMAGES="${DOCKER_PRUNE_ALL_IMAGES:-1}"
 
 log() {
   echo "[saulinfo-site:update] $*"
@@ -150,8 +151,13 @@ if [ "${DOCKER_CLEANUP}" = "1" ]; then
   log "Pruning Docker builder cache"
   docker builder prune -af >/dev/null 2>&1 || true
 
-  log "Pruning dangling Docker images"
-  docker image prune -f >/dev/null 2>&1 || true
+  if [ "${DOCKER_PRUNE_ALL_IMAGES}" = "1" ]; then
+    log "Pruning all unused Docker images"
+    docker image prune -af >/dev/null 2>&1 || true
+  else
+    log "Pruning dangling Docker images"
+    docker image prune -f >/dev/null 2>&1 || true
+  fi
 else
   progress_step "Skip Docker cleanup"
 fi
