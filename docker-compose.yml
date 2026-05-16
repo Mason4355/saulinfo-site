@@ -1,5 +1,6 @@
 services:
   saulinfo-site:
+    image: ${SAULINFO_SITE_IMAGE:-ghcr.io/mason4355/saulinfo-site:main}
     build: .
     restart: unless-stopped
     container_name: saulinfo-site

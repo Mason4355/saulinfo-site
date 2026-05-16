@@ -10,6 +10,7 @@ BRANCH="${BRANCH:-main}"
 CONTAINER_NAME="${CONTAINER_NAME:-saulinfo-site}"
 WAIT_SECONDS="${WAIT_SECONDS:-90}"
 DOCKER_CLEANUP="${DOCKER_CLEANUP:-1}"
+USE_PREBUILT_IMAGES="${USE_PREBUILT_IMAGES:-1}"
 
 log() {
   echo "[saulinfo-site:update] $*"
@@ -97,10 +98,23 @@ FINAL_SHORT="$(short_commit "${FINAL_COMMIT}")"
 FINAL_SUBJECT="$(commit_subject "${FINAL_COMMIT}")"
 
 if [ "${UPDATE_STATUS}" = "UPDATED" ] || [ "${FORCE_REBUILD:-0}" = "1" ]; then
-  progress_step "Build and restart container"
-  log "Rebuilding and restarting container"
-  progress_note "Docker build output is shown below; provenance/Bake are disabled."
-  "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
+  if [ "${USE_PREBUILT_IMAGES}" = "1" ] && [ "${FORCE_REBUILD:-0}" != "1" ]; then
+    progress_step "Pull prebuilt image and restart container"
+    log "Pulling prebuilt image from registry"
+    progress_note "If image is not ready yet, update falls back to local build."
+    if "${COMPOSE_CMD[@]}" pull --ignore-pull-failures && "${COMPOSE_CMD[@]}" up -d --no-build --remove-orphans; then
+      :
+    else
+      log "Prebuilt image unavailable; falling back to local build"
+      progress_note "Docker build output is shown below; provenance/Bake are disabled."
+      "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
+    fi
+  else
+    progress_step "Build and restart container"
+    log "Rebuilding and restarting container"
+    progress_note "Docker build output is shown below; provenance/Bake are disabled."
+    "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
+  fi
 else
   progress_step "Ensure container is running"
   log "No new patches; ensuring container is running without rebuild"

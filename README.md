@@ -39,3 +39,13 @@ saul-update
 /root/shop-update/README.md
 /root/shop-update/docs/FINAL_DEPLOY.md
 ```
+
+## Fast image updates
+
+This repository publishes a ready-to-run Docker image for faster VPS updates:
+
+```text
+ghcr.io/mason4355/saulinfo-site:main
+```
+
+`saul-update` pulls this image first and falls back to local build only if the image is not ready yet.
