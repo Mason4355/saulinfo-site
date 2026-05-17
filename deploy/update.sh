@@ -10,7 +10,9 @@ BRANCH="${BRANCH:-main}"
 CONTAINER_NAME="${CONTAINER_NAME:-saulinfo-site}"
 WAIT_SECONDS="${WAIT_SECONDS:-90}"
 DOCKER_CLEANUP="${DOCKER_CLEANUP:-1}"
-USE_PREBUILT_IMAGES="${USE_PREBUILT_IMAGES:-1}"
+USE_PREBUILT_IMAGES_WAS_SET="${USE_PREBUILT_IMAGES+x}"
+USE_PREBUILT_IMAGES="${USE_PREBUILT_IMAGES:-}"
+UPDATE_MODE="${SAULINFO_UPDATE_MODE:-${UPDATE_MODE:-}}"
 ALLOW_LOCAL_BUILD="${ALLOW_LOCAL_BUILD:-auto}"
 DOCKER_PRUNE_ALL_IMAGES="${DOCKER_PRUNE_ALL_IMAGES:-1}"
 
@@ -22,6 +24,21 @@ fail() {
   echo "[saulinfo-site:update] ERROR: $*" >&2
   exit 1
 }
+
+if [ -z "${UPDATE_MODE}" ]; then
+  if [ -n "${USE_PREBUILT_IMAGES_WAS_SET}" ] && [ "${USE_PREBUILT_IMAGES}" = "1" ]; then
+    UPDATE_MODE="image"
+  elif [ -n "${USE_PREBUILT_IMAGES_WAS_SET}" ] && [ "${USE_PREBUILT_IMAGES}" = "0" ]; then
+    UPDATE_MODE="source"
+  else
+    UPDATE_MODE="source"
+  fi
+fi
+
+case "${UPDATE_MODE}" in
+  source|image|auto) ;;
+  *) fail "invalid UPDATE_MODE/SAULINFO_UPDATE_MODE: ${UPDATE_MODE} (use source, image, or auto)" ;;
+esac
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "command not found: $1"
@@ -130,31 +147,36 @@ elif [ "${FORCE_REBUILD:-0}" = "auto" ]; then
 fi
 
 log "Recreate reason: ${RECREATE_REASON}"
+log "Update mode: ${UPDATE_MODE}"
 
 if [ "${SHOULD_RECREATE}" = "1" ]; then
-  if [ "${USE_PREBUILT_IMAGES}" = "1" ]; then
+  if [ "${UPDATE_MODE}" = "image" ]; then
     progress_step "Pull prebuilt image and restart container (${RECREATE_REASON})"
     log "Pulling prebuilt image from registry"
-    progress_note "Using prebuilt image first; local build starts automatically only if registry image is unavailable."
-    if "${COMPOSE_CMD[@]}" pull && "${COMPOSE_CMD[@]}" up -d --no-build --remove-orphans; then
+    progress_note "Image mode uses registry images only. Use SAULINFO_UPDATE_MODE=source for guaranteed local builds from the public repository."
+    "${COMPOSE_CMD[@]}" pull
+    "${COMPOSE_CMD[@]}" up -d --no-build --force-recreate --remove-orphans
+  elif [ "${UPDATE_MODE}" = "auto" ]; then
+    progress_step "Pull prebuilt image and restart container (${RECREATE_REASON})"
+    log "Pulling prebuilt image from registry"
+    progress_note "Auto mode tries registry image first, then local build if pull/up fails."
+    if "${COMPOSE_CMD[@]}" pull && "${COMPOSE_CMD[@]}" up -d --no-build --force-recreate --remove-orphans; then
       :
-    elif [ "${ALLOW_LOCAL_BUILD}" != "0" ]; then
+    else
       log "Prebuilt image unavailable or unusable; falling back to local build automatically"
       progress_note "Docker build output is shown below; provenance/Bake are disabled."
-      "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
-    else
-      fail "prebuilt image is unavailable or stale; local build is disabled by ALLOW_LOCAL_BUILD=0."
+      "${COMPOSE_CMD[@]}" up -d --build --force-recreate --remove-orphans
     fi
   else
-    progress_step "Build and restart container (${RECREATE_REASON})"
-    log "Rebuilding and restarting container"
-    progress_note "Docker build output is shown below; provenance/Bake are disabled."
-    "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
+    progress_step "Build from public repository and restart container (${RECREATE_REASON})"
+    log "Building local image from checked-out source"
+    progress_note "Source mode does not mount source folders into containers; only data directories are mounted."
+    "${COMPOSE_CMD[@]}" up -d --build --force-recreate --remove-orphans
   fi
 else
   progress_step "Ensure container is running"
-  log "No new patches; ensuring container is running without rebuild"
-  "${COMPOSE_CMD[@]}" up -d --remove-orphans
+  log "No new patches; ensuring container is running without pull/build"
+  "${COMPOSE_CMD[@]}" up -d --no-build --remove-orphans
 fi
 
 progress_step "Wait for container health"
