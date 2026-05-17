@@ -67,7 +67,11 @@ fi
 git config core.filemode false || true
 
 if [ -n "$(git status --porcelain)" ]; then
-  fail "working tree is dirty; commit or discard local changes before update"
+  if [ "${SAULINFO_KEEP_LOCAL_CHANGES:-0}" = "1" ]; then
+    fail "working tree is dirty; commit or discard local changes before update"
+  fi
+  log "Working tree is dirty; saving local changes to git stash before update"
+  git stash push -u -m "saulinfo auto-stash before cabinet update $(date -Iseconds)" >/dev/null
 fi
 
 progress_step "Fetch latest patches"
