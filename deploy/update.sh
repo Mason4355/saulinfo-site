@@ -11,7 +11,7 @@ CONTAINER_NAME="${CONTAINER_NAME:-saulinfo-site}"
 WAIT_SECONDS="${WAIT_SECONDS:-90}"
 DOCKER_CLEANUP="${DOCKER_CLEANUP:-1}"
 USE_PREBUILT_IMAGES="${USE_PREBUILT_IMAGES:-1}"
-ALLOW_LOCAL_BUILD="${ALLOW_LOCAL_BUILD:-0}"
+ALLOW_LOCAL_BUILD="${ALLOW_LOCAL_BUILD:-auto}"
 DOCKER_PRUNE_ALL_IMAGES="${DOCKER_PRUNE_ALL_IMAGES:-1}"
 
 log() {
@@ -135,15 +135,15 @@ if [ "${SHOULD_RECREATE}" = "1" ]; then
   if [ "${USE_PREBUILT_IMAGES}" = "1" ]; then
     progress_step "Pull prebuilt image and restart container (${RECREATE_REASON})"
     log "Pulling prebuilt image from registry"
-    progress_note "Local Docker build is disabled by default to avoid VPS hangs. Use ALLOW_LOCAL_BUILD=1 to allow fallback."
-    if "${COMPOSE_CMD[@]}" pull --ignore-pull-failures && "${COMPOSE_CMD[@]}" up -d --no-build --remove-orphans; then
+    progress_note "Using prebuilt image first; local build starts automatically only if registry image is unavailable."
+    if "${COMPOSE_CMD[@]}" pull && "${COMPOSE_CMD[@]}" up -d --no-build --remove-orphans; then
       :
-    elif [ "${ALLOW_LOCAL_BUILD}" = "1" ]; then
-      log "Prebuilt image unavailable; falling back to local build"
+    elif [ "${ALLOW_LOCAL_BUILD}" != "0" ]; then
+      log "Prebuilt image unavailable or unusable; falling back to local build automatically"
       progress_note "Docker build output is shown below; provenance/Bake are disabled."
       "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
     else
-      fail "prebuilt image is unavailable or stale; local build is disabled. Retry in a few minutes or run ALLOW_LOCAL_BUILD=1 update-site."
+      fail "prebuilt image is unavailable or stale; local build is disabled by ALLOW_LOCAL_BUILD=0."
     fi
   else
     progress_step "Build and restart container (${RECREATE_REASON})"
@@ -202,6 +202,11 @@ log "Patch result: ${UPDATE_STATUS}"
 log "Before: ${LOCAL_SHORT} ${LOCAL_SUBJECT}"
 log "After:  ${FINAL_SHORT} ${FINAL_SUBJECT}"
 log "Recreate reason: ${RECREATE_REASON}"
+if [ "${SHOULD_RECREATE}" = "1" ]; then
+  log "Containers: RECREATED"
+else
+  log "Containers: SKIPPED RECREATE"
+fi
 log "Container ${CONTAINER_NAME}: ${STATUS}"
 progress_step "Finish"
 log "Update complete"
