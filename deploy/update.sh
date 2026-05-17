@@ -103,9 +103,37 @@ FINAL_COMMIT="$(git rev-parse HEAD)"
 FINAL_SHORT="$(short_commit "${FINAL_COMMIT}")"
 FINAL_SUBJECT="$(commit_subject "${FINAL_COMMIT}")"
 
-if [ "${UPDATE_STATUS}" = "UPDATED" ] || [ "${FORCE_REBUILD:-0}" = "1" ]; then
+container_status() {
+  local name="$1"
+  if ! docker container inspect "${name}" >/dev/null 2>&1; then
+    printf 'missing'
+    return 0
+  fi
+  docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${name}" 2>/dev/null || printf 'unknown'
+}
+
+RECREATE_REASON="no changes"
+SHOULD_RECREATE=0
+
+if [ "${UPDATE_STATUS}" = "UPDATED" ]; then
+  SHOULD_RECREATE=1
+  RECREATE_REASON="git changed"
+elif [ "${FORCE_REBUILD:-0}" = "1" ]; then
+  SHOULD_RECREATE=1
+  RECREATE_REASON="forced"
+elif [ "${FORCE_REBUILD:-0}" = "auto" ]; then
+  checked_status="$(container_status "${CONTAINER_NAME}")"
+  if [ "${checked_status}" != "healthy" ] && [ "${checked_status}" != "running" ]; then
+    SHOULD_RECREATE=1
+    RECREATE_REASON="container ${CONTAINER_NAME} ${checked_status}"
+  fi
+fi
+
+log "Recreate reason: ${RECREATE_REASON}"
+
+if [ "${SHOULD_RECREATE}" = "1" ]; then
   if [ "${USE_PREBUILT_IMAGES}" = "1" ]; then
-    progress_step "Pull prebuilt image and restart container"
+    progress_step "Pull prebuilt image and restart container (${RECREATE_REASON})"
     log "Pulling prebuilt image from registry"
     progress_note "Local Docker build is disabled by default to avoid VPS hangs. Use ALLOW_LOCAL_BUILD=1 to allow fallback."
     if "${COMPOSE_CMD[@]}" pull --ignore-pull-failures && "${COMPOSE_CMD[@]}" up -d --no-build --remove-orphans; then
@@ -118,7 +146,7 @@ if [ "${UPDATE_STATUS}" = "UPDATED" ] || [ "${FORCE_REBUILD:-0}" = "1" ]; then
       fail "prebuilt image is unavailable or stale; local build is disabled. Retry in a few minutes or run ALLOW_LOCAL_BUILD=1 update-site."
     fi
   else
-    progress_step "Build and restart container"
+    progress_step "Build and restart container (${RECREATE_REASON})"
     log "Rebuilding and restarting container"
     progress_note "Docker build output is shown below; provenance/Bake are disabled."
     "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
@@ -173,6 +201,7 @@ progress_step "Print update result"
 log "Patch result: ${UPDATE_STATUS}"
 log "Before: ${LOCAL_SHORT} ${LOCAL_SUBJECT}"
 log "After:  ${FINAL_SHORT} ${FINAL_SUBJECT}"
+log "Recreate reason: ${RECREATE_REASON}"
 log "Container ${CONTAINER_NAME}: ${STATUS}"
 progress_step "Finish"
 log "Update complete"
