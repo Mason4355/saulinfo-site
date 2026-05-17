@@ -9,12 +9,15 @@ PROJECT_DIR="${PROJECT_DIR:-/root/saulinfo-site}"
 BRANCH="${BRANCH:-main}"
 CONTAINER_NAME="${CONTAINER_NAME:-saulinfo-site}"
 WAIT_SECONDS="${WAIT_SECONDS:-90}"
-DOCKER_CLEANUP="${DOCKER_CLEANUP:-1}"
+DOCKER_CLEANUP="${DOCKER_CLEANUP:-0}"
 USE_PREBUILT_IMAGES_WAS_SET="${USE_PREBUILT_IMAGES+x}"
 USE_PREBUILT_IMAGES="${USE_PREBUILT_IMAGES:-}"
 UPDATE_MODE="${SAULINFO_UPDATE_MODE:-${UPDATE_MODE:-}}"
 ALLOW_LOCAL_BUILD="${ALLOW_LOCAL_BUILD:-auto}"
-DOCKER_PRUNE_ALL_IMAGES="${DOCKER_PRUNE_ALL_IMAGES:-1}"
+DOCKER_PRUNE_ALL_IMAGES="${DOCKER_PRUNE_ALL_IMAGES:-0}"
+IMAGE_WAIT_SECONDS="${IMAGE_WAIT_SECONDS:-300}"
+IMAGE_WAIT_INTERVAL="${IMAGE_WAIT_INTERVAL:-15}"
+SITE_IMAGE_REPO="${SITE_IMAGE_REPO:-ghcr.io/mason4355/saulinfo-site}"
 
 log() {
   echo "[saulinfo-site:update] $*"
@@ -31,7 +34,7 @@ if [ -z "${UPDATE_MODE}" ]; then
   elif [ -n "${USE_PREBUILT_IMAGES_WAS_SET}" ] && [ "${USE_PREBUILT_IMAGES}" = "0" ]; then
     UPDATE_MODE="source"
   else
-    UPDATE_MODE="source"
+    UPDATE_MODE="auto"
   fi
 fi
 
@@ -55,10 +58,10 @@ commit_subject() {
 require_cmd git
 require_cmd docker
 
-# Avoid Docker Buildx provenance/attestation hangs on small VPSes.
+# Keep BuildKit enabled so local source builds can reuse Docker cache.
 export COMPOSE_BAKE=false
-export DOCKER_BUILDKIT=0
-export COMPOSE_DOCKER_CLI_BUILD=0
+export DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}"
+export COMPOSE_DOCKER_CLI_BUILD="${COMPOSE_DOCKER_CLI_BUILD:-1}"
 export BUILDX_NO_DEFAULT_ATTESTATIONS=1
 export BUILDKIT_PROGRESS=plain
 
@@ -120,6 +123,33 @@ FINAL_COMMIT="$(git rev-parse HEAD)"
 FINAL_SHORT="$(short_commit "${FINAL_COMMIT}")"
 FINAL_SUBJECT="$(commit_subject "${FINAL_COMMIT}")"
 
+configure_commit_image() {
+  [ "${UPDATE_MODE}" = "image" ] || [ "${UPDATE_MODE}" = "auto" ] || return 0
+  if [ -z "${SAULINFO_SITE_IMAGE:-}" ]; then
+    export SAULINFO_SITE_IMAGE="${SITE_IMAGE_REPO}:${FINAL_COMMIT}"
+  fi
+  log "Image tag: ${SAULINFO_SITE_IMAGE}"
+}
+
+pull_image_with_wait() {
+  local start_ts now_ts elapsed
+  start_ts="$(date +%s)"
+  while true; do
+    if "${COMPOSE_CMD[@]}" pull; then
+      return 0
+    fi
+    now_ts="$(date +%s)"
+    elapsed="$((now_ts - start_ts))"
+    if [ "${elapsed}" -ge "${IMAGE_WAIT_SECONDS}" ]; then
+      return 1
+    fi
+    log "Image for ${FINAL_SHORT} is not ready yet; retrying in ${IMAGE_WAIT_INTERVAL}s"
+    sleep "${IMAGE_WAIT_INTERVAL}"
+  done
+}
+
+configure_commit_image
+
 container_status() {
   local name="$1"
   if ! docker container inspect "${name}" >/dev/null 2>&1; then
@@ -152,19 +182,19 @@ log "Update mode: ${UPDATE_MODE}"
 if [ "${SHOULD_RECREATE}" = "1" ]; then
   if [ "${UPDATE_MODE}" = "image" ]; then
     progress_step "Pull prebuilt image and restart container (${RECREATE_REASON})"
-    log "Pulling prebuilt image from registry"
-    progress_note "Image mode uses registry images only. Use SAULINFO_UPDATE_MODE=source for guaranteed local builds from the public repository."
-    "${COMPOSE_CMD[@]}" pull
+    log "Pulling exact prebuilt image from registry"
+    progress_note "Image mode uses GHCR image for the exact git commit; no local build is run."
+    pull_image_with_wait || fail "prebuilt image for ${FINAL_SHORT} is not ready after ${IMAGE_WAIT_SECONDS}s; rerun later or use --source"
     "${COMPOSE_CMD[@]}" up -d --no-build --force-recreate --remove-orphans
   elif [ "${UPDATE_MODE}" = "auto" ]; then
     progress_step "Pull prebuilt image and restart container (${RECREATE_REASON})"
-    log "Pulling prebuilt image from registry"
-    progress_note "Auto mode tries registry image first, then local build if pull/up fails."
-    if "${COMPOSE_CMD[@]}" pull && "${COMPOSE_CMD[@]}" up -d --no-build --force-recreate --remove-orphans; then
+    log "Pulling exact prebuilt image from registry"
+    progress_note "Auto mode waits for GHCR image for this commit, then falls back to cached local build only if needed."
+    if pull_image_with_wait && "${COMPOSE_CMD[@]}" up -d --no-build --force-recreate --remove-orphans; then
       :
     else
       log "Prebuilt image unavailable or unusable; falling back to local build automatically"
-      progress_note "Docker build output is shown below; provenance/Bake are disabled."
+      progress_note "Docker build output is shown below; BuildKit cache is enabled."
       "${COMPOSE_CMD[@]}" up -d --build --force-recreate --remove-orphans
     fi
   else
@@ -205,14 +235,11 @@ done
 
 if [ "${DOCKER_CLEANUP}" = "1" ]; then
   progress_step "Clean Docker cache"
-  log "Pruning Docker builder cache"
-  docker builder prune -af >/dev/null 2>&1 || true
-
   if [ "${DOCKER_PRUNE_ALL_IMAGES}" = "1" ]; then
     log "Pruning all unused Docker images"
     docker image prune -af >/dev/null 2>&1 || true
   else
-    log "Pruning dangling Docker images"
+    log "Pruning dangling Docker images only; keeping build cache"
     docker image prune -f >/dev/null 2>&1 || true
   fi
 else
