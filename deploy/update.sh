@@ -10,7 +10,8 @@ BRANCH="${BRANCH:-main}"
 CONTAINER_NAME="${CONTAINER_NAME:-saulinfo-site}"
 WAIT_SECONDS="${WAIT_SECONDS:-90}"
 DOCKER_CLEANUP="${DOCKER_CLEANUP:-1}"
-USE_PREBUILT_IMAGES="${USE_PREBUILT_IMAGES:-0}"
+USE_PREBUILT_IMAGES="${USE_PREBUILT_IMAGES:-1}"
+ALLOW_LOCAL_BUILD="${ALLOW_LOCAL_BUILD:-0}"
 DOCKER_PRUNE_ALL_IMAGES="${DOCKER_PRUNE_ALL_IMAGES:-1}"
 
 log() {
@@ -99,16 +100,18 @@ FINAL_SHORT="$(short_commit "${FINAL_COMMIT}")"
 FINAL_SUBJECT="$(commit_subject "${FINAL_COMMIT}")"
 
 if [ "${UPDATE_STATUS}" = "UPDATED" ] || [ "${FORCE_REBUILD:-0}" = "1" ]; then
-  if [ "${USE_PREBUILT_IMAGES}" = "1" ] && [ "${FORCE_REBUILD:-0}" != "1" ]; then
+  if [ "${USE_PREBUILT_IMAGES}" = "1" ]; then
     progress_step "Pull prebuilt image and restart container"
     log "Pulling prebuilt image from registry"
-    progress_note "If image is not ready yet, update falls back to local build."
+    progress_note "Local Docker build is disabled by default to avoid VPS hangs. Use ALLOW_LOCAL_BUILD=1 to allow fallback."
     if "${COMPOSE_CMD[@]}" pull --ignore-pull-failures && "${COMPOSE_CMD[@]}" up -d --no-build --remove-orphans; then
       :
-    else
+    elif [ "${ALLOW_LOCAL_BUILD}" = "1" ]; then
       log "Prebuilt image unavailable; falling back to local build"
       progress_note "Docker build output is shown below; provenance/Bake are disabled."
       "${COMPOSE_CMD[@]}" up -d --build --remove-orphans
+    else
+      fail "prebuilt image is unavailable or stale; local build is disabled. Retry in a few minutes or run ALLOW_LOCAL_BUILD=1 update-site."
     fi
   else
     progress_step "Build and restart container"
