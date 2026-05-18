@@ -1,51 +1,42 @@
-# SaulInfo Cabinet Files
+# SaulInfo Site
 
-Этот репозиторий больше не является отдельным пользовательским сайтом.
-
-Основной проект SaulInfo находится здесь:
+Служебный репозиторий кабинета/сайта SaulInfo. Основная установка, обновление и команды обслуживания находятся в основном репозитории:
 
 ```text
-git@github.com:Mason4355/shop-update.git
+https://github.com/Mason4355/shop-update
 ```
 
-В основном репозитории находятся:
+## Главные команды
 
-- административная панель;
-- Telegram-бот;
-- support-бот;
-- пользовательский кабинет;
-- установщик;
-- команды обновления;
-- документация по установке и переносу.
-
-Этот репозиторий оставлен как служебный:
-
-- для совместимости с текущим установщиком;
-- для обновлений;
-- для файлов, которые могут понадобиться кабинету;
-- для плавного перехода после отказа от старого отдельного сайта.
-
-Установка и обновление выполняются из `shop-update`.
-
-На сервере используйте:
+Установка только для нового сервера или явной переустановки:
 
 ```bash
-saul-update
+bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-install.sh')
 ```
 
-Документация:
+Обновление только для уже существующего проекта:
 
-```text
-/root/shop-update/README.md
-/root/shop-update/docs/FINAL_DEPLOY.md
+```bash
+SAULINFO_SKIP_DOCTOR=1 bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-update.sh') --rebuild
 ```
 
-## Fast image updates
+После установки/обновления:
 
-This repository publishes a ready-to-run Docker image for faster VPS updates:
+```bash
+saul-install          # явная установка/переустановка
+saul-update --rebuild # обновление существующего проекта
+saul-clean            # лёгкая очистка Docker
+saul-clean deep       # глубокая очистка вручную
+```
+
+`saul-update` больше не запускает установщик автоматически.
+
+## Образы
+
+Этот репозиторий публикует готовый Docker image для быстрого обновления слабых VPS:
 
 ```text
 ghcr.io/mason4355/saulinfo-site:main
 ```
 
-`saul-update` pulls this image first and falls back to local build only if the image is not ready yet.
+Основной `saul-update` использует готовый image и не должен запускать тяжёлую локальную сборку без явного `--source`.
