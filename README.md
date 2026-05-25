@@ -31,18 +31,39 @@ saul-clean deep       # глубокая очистка вручную
 
 `saul-update` больше не запускает установщик автоматически.
 
-## Telegram через зарубежный VPS
+## Оба Telegram-бота на зарубежном VPS
 
-Если кабинет остаётся на российском сервере, а Telegram нужно вывести через
-зарубежный VPS, шлюз устанавливается из основного репозитория:
+Кабинет, база и Remnawave остаются на основном сервере. Основной и support-бот
+запускаются отдельным worker на зарубежном сервере.
+
+На основном сервере:
 
 ```bash
-bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-telegram-gateway.sh')
+cd /root/shop-update
+bash deploy/enable-core-worker-api.sh 'https://panel.example.com'
 ```
 
-База сайта и кабинета не переносится; зарубежный VPS обслуживает только
-соединение ботов с Telegram. Перед подключением шлюза обновите основной сервер
-командой `saul-update --rebuild`.
+На зарубежном сервере подставьте выданные URL API и токен:
+
+```bash
+SHOPBOT_CORE_API_URL='https://panel.example.com/control-room-saul/internal/worker' \
+SHOPBOT_CORE_API_TOKEN='ТОКЕН_С_ОСНОВНОГО_СЕРВЕРА' \
+bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-bot-worker.sh')
+```
+
+Обновления после разделения:
+
+```bash
+# основной сервер
+saul-update --rebuild
+
+# зарубежный сервер
+saul-bot-update
+saul-bot-logs
+```
+
+При переходе со старой схемы установка или обновление worker убирает прежний
+контейнер шлюза как больше не используемый.
 
 ## Образы
 
