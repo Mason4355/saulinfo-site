@@ -31,6 +31,19 @@ saul-clean deep       # глубокая очистка вручную
 
 `saul-update` больше не запускает установщик автоматически.
 
+## Telegram через зарубежный VPS
+
+Если кабинет остаётся на российском сервере, а Telegram нужно вывести через
+зарубежный VPS, шлюз устанавливается из основного репозитория:
+
+```bash
+bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-telegram-gateway.sh')
+```
+
+База сайта и кабинета не переносится; зарубежный VPS обслуживает только
+соединение ботов с Telegram. Перед подключением шлюза обновите основной сервер
+командой `saul-update --rebuild`.
+
 ## Образы
 
 Этот репозиторий публикует готовый Docker image для быстрого обновления слабых VPS:

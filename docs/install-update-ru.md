@@ -36,3 +36,15 @@ saul-clean deep
 
 `saul-update` не запускает установщик автоматически.
 
+## Telegram через зарубежный VPS
+
+Для схемы, в которой кабинет остаётся на российском сервере, а Telegram Bot API
+обслуживается зарубежным VPS, используйте установщик из основного репозитория:
+
+```bash
+bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-telegram-gateway.sh')
+```
+
+Перед подключением выполните `saul-update --rebuild` на основном сервере.
+Команда подключения будет напечатана после установки шлюза. Данные кабинета и
+сайта остаются на основном сервере.
