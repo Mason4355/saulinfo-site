@@ -56,7 +56,14 @@ SHOPBOT_CORE_API_TOKEN='ТОКЕН_С_ОСНОВНОГО_СЕРВЕРА' \
 bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-bot-worker.sh')
 ```
 
+Зарубежный VPS содержит только рабочие файлы контейнера:
+
+```text
+/opt/saulinfo-telegram-worker/docker-compose.yml
+/opt/saulinfo-telegram-worker/.env
+```
+
 Для обновления используйте `saul-update --rebuild` на основном сервере и
 `saul-bot-update` на зарубежном сервере.
-При переходе со старой схемы worker удаляет прежний контейнер шлюза как
-неиспользуемый.
+Старая worker-копия `/root/shop-update` удаляется повторной установкой, только
+если это не основной сервер с `.env`.

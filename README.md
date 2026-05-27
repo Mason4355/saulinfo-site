@@ -51,6 +51,14 @@ SHOPBOT_CORE_API_TOKEN='ТОКЕН_С_ОСНОВНОГО_СЕРВЕРА' \
 bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-bot-worker.sh')
 ```
 
+На зарубежный сервер основной проект не копируется. Установщик оставляет
+только:
+
+```text
+/opt/saulinfo-telegram-worker/docker-compose.yml
+/opt/saulinfo-telegram-worker/.env
+```
+
 Обновления после разделения:
 
 ```bash
@@ -62,8 +70,9 @@ saul-bot-update
 saul-bot-logs
 ```
 
-При переходе со старой схемы установка или обновление worker убирает прежний
-контейнер шлюза как больше не используемый.
+Если на зарубежном сервере осталась старая worker-копия `/root/shop-update`,
+повторная установка перенесёт настройки и удалит её, только если там нет
+основного `.env`.
 
 ## Образы
 
