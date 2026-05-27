@@ -1,6 +1,6 @@
 # Установка и обновление SaulInfo
 
-`bootstrap-install.sh` и `saul-install` при каждом запуске заново спрашивают параметры установки. Старые ответы используются только как значения по умолчанию.
+`bootstrap-install.sh` и `saul-install` при каждом запуске заново спрашивают параметры установки. Старые ответы используются только как значения по умолчанию. При чистой установке вход по умолчанию: `admin` / `admin`.
 
 ## Полное удаление
 
@@ -44,9 +44,14 @@ saul-update --rebuild
 saul-install
 saul-update --rebuild
 saul-doctor --fix
+saul-repair-nginx
+saul-reset-panel-admin
 saul-clean
 saul-clean deep
+saul-uninstall --force
 ```
+
+Для одновременной привязки владельца панели к Telegram: `ADMIN_ID=123456789 saul-reset-panel-admin`.
 
 `saul-update` не запускает установщик автоматически.
 

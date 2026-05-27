@@ -25,11 +25,15 @@ SAULINFO_SKIP_DOCTOR=1 bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://r
 ```bash
 saul-install          # явная установка/переустановка
 saul-update --rebuild # обновление существующего проекта
+saul-doctor --fix     # диагностика и ремонт
+saul-repair-nginx     # восстановить nginx-routing
+saul-reset-panel-admin # восстановить вход admin/admin; ADMIN_ID необязателен
 saul-clean            # лёгкая очистка Docker
 saul-clean deep       # глубокая очистка вручную
+saul-uninstall --force # полностью удалить проект
 ```
 
-Установка через `bootstrap-install.sh` или `saul-install` при каждом запуске снова спрашивает параметры, используя старые ответы только как значения по умолчанию.
+Установка через `bootstrap-install.sh` или `saul-install` при каждом запуске снова спрашивает параметры, используя старые ответы только как значения по умолчанию. При первой установке логин и пароль панели по умолчанию: `admin` / `admin`.
 
 Полное удаление проекта:
 
