@@ -1,5 +1,19 @@
 # Установка и обновление SaulInfo
 
+`bootstrap-install.sh` и `saul-install` при каждом запуске заново спрашивают параметры установки. Старые ответы используются только как значения по умолчанию.
+
+## Полное удаление
+
+```bash
+bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-uninstall.sh') --force
+```
+
+После установки также доступно:
+
+```bash
+saul-uninstall --force
+```
+
 Этот репозиторий служебный. Установка и обновление выполняются через основной репозиторий `Mason4355/shop-update`.
 
 ## Установка

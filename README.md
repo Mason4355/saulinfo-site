@@ -29,6 +29,14 @@ saul-clean            # лёгкая очистка Docker
 saul-clean deep       # глубокая очистка вручную
 ```
 
+Установка через `bootstrap-install.sh` или `saul-install` при каждом запуске снова спрашивает параметры, используя старые ответы только как значения по умолчанию.
+
+Полное удаление проекта:
+
+```bash
+bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-uninstall.sh') --force
+```
+
 `saul-update` больше не запускает установщик автоматически.
 
 ## Оба Telegram-бота на зарубежном VPS
