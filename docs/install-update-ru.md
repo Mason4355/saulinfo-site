@@ -2,6 +2,8 @@
 
 `bootstrap-install.sh` и `saul-install` при каждом запуске заново спрашивают параметры установки. Старые ответы используются только как значения по умолчанию. При чистой установке вход по умолчанию: `admin` / `admin`.
 
+Рекомендуется указать один домен и для кабинета, и для панели: `/` открывает кабинет, `/panel/` открывает админку. Порты сервисов выбираются при установке и открываются только локально на сервере.
+
 ## Полное удаление
 
 ```bash
@@ -64,13 +66,13 @@ saul-uninstall --force
 
 ```bash
 cd /root/shop-update
-bash deploy/enable-core-worker-api.sh 'https://panel.example.com'
+bash deploy/enable-core-worker-api.sh 'https://www.example.com'
 ```
 
 На зарубежном сервере:
 
 ```bash
-SHOPBOT_CORE_API_URL='https://panel.example.com/control-room-saul/internal/worker' \
+SHOPBOT_CORE_API_URL='https://www.example.com/panel/internal/worker' \
 SHOPBOT_CORE_API_TOKEN='ТОКЕН_С_ОСНОВНОГО_СЕРВЕРА' \
 bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-bot-worker.sh')
 ```

@@ -35,6 +35,8 @@ saul-uninstall --force # полностью удалить проект
 
 Установка через `bootstrap-install.sh` или `saul-install` при каждом запуске снова спрашивает параметры, используя старые ответы только как значения по умолчанию. При первой установке логин и пароль панели по умолчанию: `admin` / `admin`.
 
+Для одного домена укажите одинаковый домен кабинета и панели: главная страница откроет кабинет, а админка будет на `/panel/`. Выбранные внутренние порты доступны только через `127.0.0.1`.
+
 Полное удаление проекта:
 
 ```bash
@@ -52,13 +54,13 @@ bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.co
 
 ```bash
 cd /root/shop-update
-bash deploy/enable-core-worker-api.sh 'https://panel.example.com'
+bash deploy/enable-core-worker-api.sh 'https://www.example.com'
 ```
 
 На зарубежном сервере подставьте выданные URL API и токен:
 
 ```bash
-SHOPBOT_CORE_API_URL='https://panel.example.com/control-room-saul/internal/worker' \
+SHOPBOT_CORE_API_URL='https://www.example.com/panel/internal/worker' \
 SHOPBOT_CORE_API_TOKEN='ТОКЕН_С_ОСНОВНОГО_СЕРВЕРА' \
 bash <(curl -H 'Cache-Control: no-cache' -fsSL 'https://raw.githubusercontent.com/Mason4355/shop-update/main/deploy/bootstrap-bot-worker.sh')
 ```

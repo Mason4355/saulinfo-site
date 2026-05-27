@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     container_name: saulinfo-site
     ports:
-      - "${SAULINFO_PORT:-8080}:8080"
+      - "127.0.0.1:${SAULINFO_PUBLIC_PORT:-8080}:8080"
     env_file:
       - .env
     volumes:
